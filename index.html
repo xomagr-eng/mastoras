@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#c0562b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ο Μάστορας">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-512.png">
+<link rel="apple-touch-icon" href="icon-512.png">
+<title>Ο Μάστορας</title>
+<script>
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){/*
+ * @copyright 2016 Sean Connelly (@voidqk), http://syntheti.cc
+ * @license MIT
+ * @preserve Project Home: https://github.com/voidqk/polybooljs
+ */
+var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var Intersecter=require("./lib/intersecter");var SegmentChainer=require("./lib/segment-chainer");var SegmentSelector=require("./lib/segment-selector");var GeoJSON=require("./lib/geojson");var buildLog=false;var epsilon=Epsilon();var PolyBool;PolyBool={buildLog:function(bl){if(bl===true)buildLog=BuildLog();else if(bl===false)buildLog=false;return buildLog===false?false:buildLog.list},epsilon:function(v){return epsilon.epsilon(v)},segments:function(poly){var i=Intersecter(true,epsilon,buildLog);poly.regions.forEach(i.addRegion);return{segments:i.calculate(poly.inverted),inverted:poly.inverted}},combine:function(segments1,segments2){var i3=Intersecter(false,epsilon,buildLog);return{combined:i3.calculate(segments1.segments,segments1.inverted,segments2.segments,segments2.inverted),inverted1:segments1.inverted,inverted2:segments2.inverted}},selectUnion:function(combined){return{segments:SegmentSelector.union(combined.combined,buildLog),inverted:combined.inverted1||combined.inverted2}},selectIntersect:function(combined){return{segments:SegmentSelector.intersect(combined.combined,buildLog),inverted:combined.inverted1&&combined.inverted2}},selectDifference:function(combined){return{segments:SegmentSelector.difference(combined.combined,buildLog),inverted:combined.inverted1&&!combined.inverted2}},selectDifferenceRev:function(combined){return{segments:SegmentSelector.differenceRev(combined.combined,buildLog),inverted:!combined.inverted1&&combined.inverted2}},selectXor:function(combined){return{segments:SegmentSelector.xor(combined.combined,buildLog),inverted:combined.inverted1!==combined.inverted2}},polygon:function(segments){return{regions:SegmentChainer(segments.segments,epsilon,buildLog),inverted:segments.inverted}},polygonFromGeoJSON:function(geojson){return GeoJSON.toPolygon(PolyBool,geojson)},polygonToGeoJSON:function(poly){return GeoJSON.fromPolygon(PolyBool,epsilon,poly)},union:function(poly1,poly2){return operate(poly1,poly2,PolyBool.selectUnion)},intersect:function(poly1,poly2){return operate(poly1,poly2,PolyBool.selectIntersect)},difference:function(poly1,poly2){return operate(poly1,poly2,PolyBool.selectDifference)},differenceRev:function(poly1,poly2){return operate(poly1,poly2,PolyBool.selectDifferenceRev)},xor:function(poly1,poly2){return operate(poly1,poly2,PolyBool.selectXor)}};function operate(poly1,poly2,selector){var seg1=PolyBool.segments(poly1);var seg2=PolyBool.segments(poly2);var comb=PolyBool.combine(seg1,seg2);var seg3=selector(comb);return PolyBool.polygon(seg3)}if(typeof window==="object")window.PolyBool=PolyBool;module.exports=PolyBool},{"./lib/build-log":2,"./lib/epsilon":3,"./lib/geojson":4,"./lib/intersecter":5,"./lib/segment-chainer":7,"./lib/segment-selector":8}],2:[function(require,module,exports){function BuildLog(){var my;var nextSegmentId=0;var curVert=false;function push(type,data){my.list.push({type:type,data:data?JSON.parse(JSON.stringify(data)):void 0});return my}my={list:[],segmentId:function(){return nextSegmentId++},checkIntersection:function(seg1,seg2){return push("check",{seg1:seg1,seg2:seg2})},segmentChop:function(seg,end){push("div_seg",{seg:seg,pt:end});return push("chop",{seg:seg,pt:end})},statusRemove:function(seg){return push("pop_seg",{seg:seg})},segmentUpdate:function(seg){return push("seg_update",{seg:seg})},segmentNew:function(seg,primary){return push("new_seg",{seg:seg,primary:primary})},segmentRemove:function(seg){return push("rem_seg",{seg:seg})},tempStatus:function(seg,above,below){return push("temp_status",{seg:seg,above:above,below:below})},rewind:function(seg){return push("rewind",{seg:seg})},status:function(seg,above,below){return push("status",{seg:seg,above:above,below:below})},vert:function(x){if(x===curVert)return my;curVert=x;return push("vert",{x:x})},log:function(data){if(typeof data!=="string")data=JSON.stringify(data,false,"  ");return push("log",{txt:data})},reset:function(){return push("reset")},selected:function(segs){return push("selected",{segs:segs})},chainStart:function(seg){return push("chain_start",{seg:seg})},chainRemoveHead:function(index,pt){return push("chain_rem_head",{index:index,pt:pt})},chainRemoveTail:function(index,pt){return push("chain_rem_tail",{index:index,pt:pt})},chainNew:function(pt1,pt2){return push("chain_new",{pt1:pt1,pt2:pt2})},chainMatch:function(index){return push("chain_match",{index:index})},chainClose:function(index){return push("chain_close",{index:index})},chainAddHead:function(index,pt){return push("chain_add_head",{index:index,pt:pt})},chainAddTail:function(index,pt){return push("chain_add_tail",{index:index,pt:pt})},chainConnect:function(index1,index2){return push("chain_con",{index1:index1,index2:index2})},chainReverse:function(index){return push("chain_rev",{index:index})},chainJoin:function(index1,index2){return push("chain_join",{index1:index1,index2:index2})},done:function(){return push("done")}};return my}module.exports=BuildLog},{}],3:[function(require,module,exports){function Epsilon(eps){if(typeof eps!=="number")eps=1e-10;var my={epsilon:function(v){if(typeof v==="number")eps=v;return eps},pointAboveOrOnLine:function(pt,left,right){var Ax=left[0];var Ay=left[1];var Bx=right[0];var By=right[1];var Cx=pt[0];var Cy=pt[1];return(Bx-Ax)*(Cy-Ay)-(By-Ay)*(Cx-Ax)>=-eps},pointBetween:function(p,left,right){var d_py_ly=p[1]-left[1];var d_rx_lx=right[0]-left[0];var d_px_lx=p[0]-left[0];var d_ry_ly=right[1]-left[1];var dot=d_px_lx*d_rx_lx+d_py_ly*d_ry_ly;if(dot<eps)return false;var sqlen=d_rx_lx*d_rx_lx+d_ry_ly*d_ry_ly;if(dot-sqlen>-eps)return false;return true},pointsSameX:function(p1,p2){return Math.abs(p1[0]-p2[0])<eps},pointsSameY:function(p1,p2){return Math.abs(p1[1]-p2[1])<eps},pointsSame:function(p1,p2){return my.pointsSameX(p1,p2)&&my.pointsSameY(p1,p2)},pointsCompare:function(p1,p2){if(my.pointsSameX(p1,p2))return my.pointsSameY(p1,p2)?0:p1[1]<p2[1]?-1:1;return p1[0]<p2[0]?-1:1},pointsCollinear:function(pt1,pt2,pt3){var dx1=pt1[0]-pt2[0];var dy1=pt1[1]-pt2[1];var dx2=pt2[0]-pt3[0];var dy2=pt2[1]-pt3[1];return Math.abs(dx1*dy2-dx2*dy1)<eps},linesIntersect:function(a0,a1,b0,b1){var adx=a1[0]-a0[0];var ady=a1[1]-a0[1];var bdx=b1[0]-b0[0];var bdy=b1[1]-b0[1];var axb=adx*bdy-ady*bdx;if(Math.abs(axb)<eps)return false;var dx=a0[0]-b0[0];var dy=a0[1]-b0[1];var A=(bdx*dy-bdy*dx)/axb;var B=(adx*dy-ady*dx)/axb;var ret={alongA:0,alongB:0,pt:[a0[0]+A*adx,a0[1]+A*ady]};if(A<=-eps)ret.alongA=-2;else if(A<eps)ret.alongA=-1;else if(A-1<=-eps)ret.alongA=0;else if(A-1<eps)ret.alongA=1;else ret.alongA=2;if(B<=-eps)ret.alongB=-2;else if(B<eps)ret.alongB=-1;else if(B-1<=-eps)ret.alongB=0;else if(B-1<eps)ret.alongB=1;else ret.alongB=2;return ret},pointInsideRegion:function(pt,region){var x=pt[0];var y=pt[1];var last_x=region[region.length-1][0];var last_y=region[region.length-1][1];var inside=false;for(var i=0;i<region.length;i++){var curr_x=region[i][0];var curr_y=region[i][1];if(curr_y-y>eps!=last_y-y>eps&&(last_x-curr_x)*(y-curr_y)/(last_y-curr_y)+curr_x-x>eps)inside=!inside;last_x=curr_x;last_y=curr_y}return inside}};return my}module.exports=Epsilon},{}],4:[function(require,module,exports){var GeoJSON={toPolygon:function(PolyBool,geojson){function GeoPoly(coords){if(coords.length<=0)return PolyBool.segments({inverted:false,regions:[]});function LineString(ls){var reg=ls.slice(0,ls.length-1);return PolyBool.segments({inverted:false,regions:[reg]})}var out=LineString(coords[0]);for(var i=1;i<coords.length;i++)out=PolyBool.selectDifference(PolyBool.combine(out,LineString(coords[i])));return out}if(geojson.type==="Polygon"){return PolyBool.polygon(GeoPoly(geojson.coordinates))}else if(geojson.type==="MultiPolygon"){var out=PolyBool.segments({inverted:false,regions:[]});for(var i=0;i<geojson.coordinates.length;i++)out=PolyBool.selectUnion(PolyBool.combine(out,GeoPoly(geojson.coordinates[i])));return PolyBool.polygon(out)}throw new Error("PolyBool: Cannot convert GeoJSON object to PolyBool polygon")},fromPolygon:function(PolyBool,eps,poly){poly=PolyBool.polygon(PolyBool.segments(poly));function regionInsideRegion(r1,r2){return eps.pointInsideRegion([(r1[0][0]+r1[1][0])*.5,(r1[0][1]+r1[1][1])*.5],r2)}function newNode(region){return{region:region,children:[]}}var roots=newNode(null);function addChild(root,region){for(var i=0;i<root.children.length;i++){var child=root.children[i];if(regionInsideRegion(region,child.region)){addChild(child,region);return}}var node=newNode(region);for(var i=0;i<root.children.length;i++){var child=root.children[i];if(regionInsideRegion(child.region,region)){node.children.push(child);root.children.splice(i,1);i--}}root.children.push(node)}for(var i=0;i<poly.regions.length;i++){var region=poly.regions[i];if(region.length<3)continue;addChild(roots,region)}function forceWinding(region,clockwise){var winding=0;var last_x=region[region.length-1][0];var last_y=region[region.length-1][1];var copy=[];for(var i=0;i<region.length;i++){var curr_x=region[i][0];var curr_y=region[i][1];copy.push([curr_x,curr_y]);winding+=curr_y*last_x-curr_x*last_y;last_x=curr_x;last_y=curr_y}var isclockwise=winding<0;if(isclockwise!==clockwise)copy.reverse();copy.push([copy[0][0],copy[0][1]]);return copy}var geopolys=[];function addExterior(node){var poly=[forceWinding(node.region,false)];geopolys.push(poly);for(var i=0;i<node.children.length;i++)poly.push(getInterior(node.children[i]))}function getInterior(node){for(var i=0;i<node.children.length;i++)addExterior(node.children[i]);return forceWinding(node.region,true)}for(var i=0;i<roots.children.length;i++)addExterior(roots.children[i]);if(geopolys.length<=0)return{type:"Polygon",coordinates:[]};if(geopolys.length==1)return{type:"Polygon",coordinates:geopolys[0]};return{type:"MultiPolygon",coordinates:geopolys}}};module.exports=GeoJSON},{}],5:[function(require,module,exports){var LinkedList=require("./linked-list");function Intersecter(selfIntersection,eps,buildLog){function segmentNew(start,end){return{id:buildLog?buildLog.segmentId():-1,start:start,end:end,myFill:{above:null,below:null},otherFill:null}}function segmentCopy(start,end,seg){return{id:buildLog?buildLog.segmentId():-1,start:start,end:end,myFill:{above:seg.myFill.above,below:seg.myFill.below},otherFill:null}}var event_root=LinkedList.create();function eventCompare(p1_isStart,p1_1,p1_2,p2_isStart,p2_1,p2_2){var comp=eps.pointsCompare(p1_1,p2_1);if(comp!==0)return comp;if(eps.pointsSame(p1_2,p2_2))return 0;if(p1_isStart!==p2_isStart)return p1_isStart?1:-1;return eps.pointAboveOrOnLine(p1_2,p2_isStart?p2_1:p2_2,p2_isStart?p2_2:p2_1)?1:-1}function eventAdd(ev,other_pt){event_root.insertBefore(ev,function(here){var comp=eventCompare(ev.isStart,ev.pt,other_pt,here.isStart,here.pt,here.other.pt);return comp<0})}function eventAddSegmentStart(seg,primary){var ev_start=LinkedList.node({isStart:true,pt:seg.start,seg:seg,primary:primary,other:null,status:null});eventAdd(ev_start,seg.end);return ev_start}function eventAddSegmentEnd(ev_start,seg,primary){var ev_end=LinkedList.node({isStart:false,pt:seg.end,seg:seg,primary:primary,other:ev_start,status:null});ev_start.other=ev_end;eventAdd(ev_end,ev_start.pt)}function eventAddSegment(seg,primary){var ev_start=eventAddSegmentStart(seg,primary);eventAddSegmentEnd(ev_start,seg,primary);return ev_start}function eventUpdateEnd(ev,end){if(buildLog)buildLog.segmentChop(ev.seg,end);ev.other.remove();ev.seg.end=end;ev.other.pt=end;eventAdd(ev.other,ev.pt)}function eventDivide(ev,pt){var ns=segmentCopy(pt,ev.seg.end,ev.seg);eventUpdateEnd(ev,pt);return eventAddSegment(ns,ev.primary)}function calculate(primaryPolyInverted,secondaryPolyInverted){var status_root=LinkedList.create();function statusCompare(ev1,ev2){var a1=ev1.seg.start;var a2=ev1.seg.end;var b1=ev2.seg.start;var b2=ev2.seg.end;if(eps.pointsCollinear(a1,b1,b2)){if(eps.pointsCollinear(a2,b1,b2))return 1;return eps.pointAboveOrOnLine(a2,b1,b2)?1:-1}return eps.pointAboveOrOnLine(a1,b1,b2)?1:-1}function statusFindSurrounding(ev){return status_root.findTransition(function(here){var comp=statusCompare(ev,here.ev);return comp>0})}function checkIntersection(ev1,ev2){var seg1=ev1.seg;var seg2=ev2.seg;var a1=seg1.start;var a2=seg1.end;var b1=seg2.start;var b2=seg2.end;if(buildLog)buildLog.checkIntersection(seg1,seg2);var i=eps.linesIntersect(a1,a2,b1,b2);if(i===false){if(!eps.pointsCollinear(a1,a2,b1))return false;if(eps.pointsSame(a1,b2)||eps.pointsSame(a2,b1))return false;var a1_equ_b1=eps.pointsSame(a1,b1);var a2_equ_b2=eps.pointsSame(a2,b2);if(a1_equ_b1&&a2_equ_b2)return ev2;var a1_between=!a1_equ_b1&&eps.pointBetween(a1,b1,b2);var a2_between=!a2_equ_b2&&eps.pointBetween(a2,b1,b2);if(a1_equ_b1){if(a2_between){eventDivide(ev2,a2)}else{eventDivide(ev1,b2)}return ev2}else if(a1_between){if(!a2_equ_b2){if(a2_between){eventDivide(ev2,a2)}else{eventDivide(ev1,b2)}}eventDivide(ev2,a1)}}else{if(i.alongA===0){if(i.alongB===-1)eventDivide(ev1,b1);else if(i.alongB===0)eventDivide(ev1,i.pt);else if(i.alongB===1)eventDivide(ev1,b2)}if(i.alongB===0){if(i.alongA===-1)eventDivide(ev2,a1);else if(i.alongA===0)eventDivide(ev2,i.pt);else if(i.alongA===1)eventDivide(ev2,a2)}}return false}var segments=[];while(!event_root.isEmpty()){var ev=event_root.getHead();if(buildLog)buildLog.vert(ev.pt[0]);if(ev.isStart){if(buildLog)buildLog.segmentNew(ev.seg,ev.primary);var surrounding=statusFindSurrounding(ev);var above=surrounding.before?surrounding.before.ev:null;var below=surrounding.after?surrounding.after.ev:null;if(buildLog){buildLog.tempStatus(ev.seg,above?above.seg:false,below?below.seg:false)}function checkBothIntersections(){if(above){var eve=checkIntersection(ev,above);if(eve)return eve}if(below)return checkIntersection(ev,below);return false}var eve=checkBothIntersections();if(eve){if(selfIntersection){var toggle;if(ev.seg.myFill.below===null)toggle=true;else toggle=ev.seg.myFill.above!==ev.seg.myFill.below;if(toggle)eve.seg.myFill.above=!eve.seg.myFill.above}else{eve.seg.otherFill=ev.seg.myFill}if(buildLog)buildLog.segmentUpdate(eve.seg);ev.other.remove();ev.remove()}if(event_root.getHead()!==ev){if(buildLog)buildLog.rewind(ev.seg);continue}if(selfIntersection){var toggle;if(ev.seg.myFill.below===null)toggle=true;else toggle=ev.seg.myFill.above!==ev.seg.myFill.below;if(!below){ev.seg.myFill.below=primaryPolyInverted}else{ev.seg.myFill.below=below.seg.myFill.above}if(toggle)ev.seg.myFill.above=!ev.seg.myFill.below;else ev.seg.myFill.above=ev.seg.myFill.below}else{if(ev.seg.otherFill===null){var inside;if(!below){inside=ev.primary?secondaryPolyInverted:primaryPolyInverted}else{if(ev.primary===below.primary)inside=below.seg.otherFill.above;else inside=below.seg.myFill.above}ev.seg.otherFill={above:inside,below:inside}}}if(buildLog){buildLog.status(ev.seg,above?above.seg:false,below?below.seg:false)}ev.other.status=surrounding.insert(LinkedList.node({ev:ev}))}else{var st=ev.status;if(st===null){throw new Error("PolyBool: Zero-length segment detected; your epsilon is "+"probably too small or too large")}if(status_root.exists(st.prev)&&status_root.exists(st.next))checkIntersection(st.prev.ev,st.next.ev);if(buildLog)buildLog.statusRemove(st.ev.seg);st.remove();if(!ev.primary){var s=ev.seg.myFill;ev.seg.myFill=ev.seg.otherFill;ev.seg.otherFill=s}segments.push(ev.seg)}event_root.getHead().remove()}if(buildLog)buildLog.done();return segments}if(!selfIntersection){return{calculate:function(segments1,inverted1,segments2,inverted2){segments1.forEach(function(seg){eventAddSegment(segmentCopy(seg.start,seg.end,seg),true)});segments2.forEach(function(seg){eventAddSegment(segmentCopy(seg.start,seg.end,seg),false)});return calculate(inverted1,inverted2)}}}return{addRegion:function(region){var pt1;var pt2=region[region.length-1];for(var i=0;i<region.length;i++){pt1=pt2;pt2=region[i];var forward=eps.pointsCompare(pt1,pt2);if(forward===0)continue;eventAddSegment(segmentNew(forward<0?pt1:pt2,forward<0?pt2:pt1),true)}},calculate:function(inverted){return calculate(inverted,false)}}}module.exports=Intersecter},{"./linked-list":6}],6:[function(require,module,exports){var LinkedList={create:function(){var my={root:{root:true,next:null},exists:function(node){if(node===null||node===my.root)return false;return true},isEmpty:function(){return my.root.next===null},getHead:function(){return my.root.next},insertBefore:function(node,check){var last=my.root;var here=my.root.next;while(here!==null){if(check(here)){node.prev=here.prev;node.next=here;here.prev.next=node;here.prev=node;return}last=here;here=here.next}last.next=node;node.prev=last;node.next=null},findTransition:function(check){var prev=my.root;var here=my.root.next;while(here!==null){if(check(here))break;prev=here;here=here.next}return{before:prev===my.root?null:prev,after:here,insert:function(node){node.prev=prev;node.next=here;prev.next=node;if(here!==null)here.prev=node;return node}}}};return my},node:function(data){data.prev=null;data.next=null;data.remove=function(){data.prev.next=data.next;if(data.next)data.next.prev=data.prev;data.prev=null;data.next=null};return data}};module.exports=LinkedList},{}],7:[function(require,module,exports){function SegmentChainer(segments,eps,buildLog){var chains=[];var regions=[];segments.forEach(function(seg){var pt1=seg.start;var pt2=seg.end;if(eps.pointsSame(pt1,pt2)){console.warn("PolyBool: Warning: Zero-length segment detected; your epsilon is "+"probably too small or too large");return}if(buildLog)buildLog.chainStart(seg);var first_match={index:0,matches_head:false,matches_pt1:false};var second_match={index:0,matches_head:false,matches_pt1:false};var next_match=first_match;function setMatch(index,matches_head,matches_pt1){next_match.index=index;next_match.matches_head=matches_head;next_match.matches_pt1=matches_pt1;if(next_match===first_match){next_match=second_match;return false}next_match=null;return true}for(var i=0;i<chains.length;i++){var chain=chains[i];var head=chain[0];var head2=chain[1];var tail=chain[chain.length-1];var tail2=chain[chain.length-2];if(eps.pointsSame(head,pt1)){if(setMatch(i,true,true))break}else if(eps.pointsSame(head,pt2)){if(setMatch(i,true,false))break}else if(eps.pointsSame(tail,pt1)){if(setMatch(i,false,true))break}else if(eps.pointsSame(tail,pt2)){if(setMatch(i,false,false))break}}if(next_match===first_match){chains.push([pt1,pt2]);if(buildLog)buildLog.chainNew(pt1,pt2);return}if(next_match===second_match){if(buildLog)buildLog.chainMatch(first_match.index);var index=first_match.index;var pt=first_match.matches_pt1?pt2:pt1;var addToHead=first_match.matches_head;var chain=chains[index];var grow=addToHead?chain[0]:chain[chain.length-1];var grow2=addToHead?chain[1]:chain[chain.length-2];var oppo=addToHead?chain[chain.length-1]:chain[0];var oppo2=addToHead?chain[chain.length-2]:chain[1];if(eps.pointsCollinear(grow2,grow,pt)){if(addToHead){if(buildLog)buildLog.chainRemoveHead(first_match.index,pt);chain.shift()}else{if(buildLog)buildLog.chainRemoveTail(first_match.index,pt);chain.pop()}grow=grow2}if(eps.pointsSame(oppo,pt)){chains.splice(index,1);if(eps.pointsCollinear(oppo2,oppo,grow)){if(addToHead){if(buildLog)buildLog.chainRemoveTail(first_match.index,grow);chain.pop()}else{if(buildLog)buildLog.chainRemoveHead(first_match.index,grow);chain.shift()}}if(buildLog)buildLog.chainClose(first_match.index);regions.push(chain);return}if(addToHead){if(buildLog)buildLog.chainAddHead(first_match.index,pt);chain.unshift(pt)}else{if(buildLog)buildLog.chainAddTail(first_match.index,pt);chain.push(pt)}return}function reverseChain(index){if(buildLog)buildLog.chainReverse(index);chains[index].reverse()}function appendChain(index1,index2){var chain1=chains[index1];var chain2=chains[index2];var tail=chain1[chain1.length-1];var tail2=chain1[chain1.length-2];var head=chain2[0];var head2=chain2[1];if(eps.pointsCollinear(tail2,tail,head)){if(buildLog)buildLog.chainRemoveTail(index1,tail);chain1.pop();tail=tail2}if(eps.pointsCollinear(tail,head,head2)){if(buildLog)buildLog.chainRemoveHead(index2,head);chain2.shift()}if(buildLog)buildLog.chainJoin(index1,index2);chains[index1]=chain1.concat(chain2);chains.splice(index2,1)}var F=first_match.index;var S=second_match.index;if(buildLog)buildLog.chainConnect(F,S);var reverseF=chains[F].length<chains[S].length;if(first_match.matches_head){if(second_match.matches_head){if(reverseF){reverseChain(F);appendChain(F,S)}else{reverseChain(S);appendChain(S,F)}}else{appendChain(S,F)}}else{if(second_match.matches_head){appendChain(F,S)}else{if(reverseF){reverseChain(F);appendChain(S,F)}else{reverseChain(S);appendChain(F,S)}}}});return regions}module.exports=SegmentChainer},{}],8:[function(require,module,exports){function select(segments,selection,buildLog){var result=[];segments.forEach(function(seg){var index=(seg.myFill.above?8:0)+(seg.myFill.below?4:0)+(seg.otherFill&&seg.otherFill.above?2:0)+(seg.otherFill&&seg.otherFill.below?1:0);if(selection[index]!==0){result.push({id:buildLog?buildLog.segmentId():-1,start:seg.start,end:seg.end,myFill:{above:selection[index]===1,below:selection[index]===2},otherFill:null})}});if(buildLog)buildLog.selected(result);return result}var SegmentSelector={union:function(segments,buildLog){return select(segments,[0,2,1,0,2,2,0,0,1,0,1,0,0,0,0,0],buildLog)},intersect:function(segments,buildLog){return select(segments,[0,0,0,0,0,2,0,2,0,0,1,1,0,2,1,0],buildLog)},difference:function(segments,buildLog){return select(segments,[0,0,0,0,2,0,2,0,1,1,0,0,0,1,2,0],buildLog)},differenceRev:function(segments,buildLog){return select(segments,[0,2,1,0,0,0,1,1,0,2,0,2,0,0,0,0],buildLog)},xor:function(segments,buildLog){return select(segments,[0,2,1,0,2,0,0,1,1,0,0,2,0,1,2,0],buildLog)}};module.exports=SegmentSelector},{}]},{},[1]);
+</script>
+<style>
+  :root{
+    --bg:#eef1f5; --panel:#ffffff; --ink:#1a2430; --muted:#5d6b7a; --line:#d5dce4;
+    --accent:#c0562b; --accent2:#2b6cb0; --ok:#2f855a; --warn:#b7791f; --bad:#c53030;
+    --full:#8fb3d9; --cut:#e6a15a; --cutedge:#b4661f; --tri:#d97b4a; --room:#e8f0f8; --col:#c53030;
+    --shadow:0 1px 3px rgba(0,0,0,.08),0 6px 18px rgba(0,0,0,.06); --radius:12px;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --bg:#12171d; --panel:#1b232c; --ink:#e7edf3; --muted:#9aa8b6; --line:#2c3742;
+    --accent:#e07a4d; --accent2:#5b9bd8; --full:#3a5a7d; --cut:#8a5a24; --cutedge:#d69451; --tri:#a85f30;
+    --room:#232f3b; --col:#e05555; --shadow:0 1px 3px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.3);
+  }}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45}
+  header{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;box-shadow:var(--shadow)}
+  header .logo{font-size:24px}
+  header h1{font-size:18px;margin:0;font-weight:700}
+  header .sub{font-size:12px;opacity:.9}
+  .tabs{display:flex;gap:4px;background:var(--panel);padding:6px 8px;position:sticky;top:56px;z-index:19;border-bottom:1px solid var(--line);overflow-x:auto}
+  .tabs button{flex:0 0 auto;background:transparent;border:none;color:var(--muted);font-size:14px;font-weight:600;padding:8px 14px;border-radius:8px;cursor:pointer;white-space:nowrap}
+  .tabs button.active{background:var(--accent);color:#fff}
+  .wrap{max-width:1500px;margin:0 auto;padding:12px}
+  .grid{display:grid;grid-template-columns:340px 1fr 330px;gap:12px;align-items:start}
+  @media(max-width:1150px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:12px}
+  .card h2{font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .row{display:flex;gap:8px;margin-bottom:10px}
+  .row>*{flex:1}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px;font-weight:600}
+  input,select{width:100%;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:14px;font-family:inherit}
+  input:focus,select:focus{outline:2px solid var(--accent);border-color:transparent}
+  .seg{display:flex;flex-wrap:wrap;gap:6px}
+  .seg button{flex:1 1 auto;padding:8px 6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;min-width:64px}
+  .seg button.active{background:var(--accent2);color:#fff;border-color:transparent}
+  .hint{font-size:12px;color:var(--muted);margin:-2px 0 10px}
+  canvas{width:100%;height:auto;background:var(--bg);border-radius:10px;border:1px solid var(--line);touch-action:none;display:block;cursor:crosshair}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .sw{width:14px;height:14px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.2)}
+  .kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+  .kpi .box{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .kpi .box .v{font-size:20px;font-weight:800}
+  .kpi .box .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .mat td:first-child{font-weight:600}
+  .badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:20px;font-weight:700}
+  .badge.ok{background:rgba(47,133,90,.15);color:var(--ok)}
+  .badge.warn{background:rgba(183,121,31,.15);color:var(--warn)}
+  .note{font-size:12.5px;background:var(--bg);border-left:3px solid var(--accent);padding:8px 10px;border-radius:6px;margin:8px 0;color:var(--ink)}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .btn{padding:9px 14px;border:none;border-radius:9px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-size:14px}
+  .btn.sec{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+  .btn.mini{padding:5px 9px;font-size:12px}
+  .cutlist{max-height:280px;overflow:auto}
+  .tabpane{display:none}
+  .tabpane.active{display:block}
+  .inline{display:flex;align-items:center;gap:8px}
+  .inline input[type=checkbox]{width:auto;flex:0}
+  .small{font-size:12px;color:var(--muted)}
+  .feat{display:flex;gap:5px;align-items:center;margin-bottom:6px;font-size:12px}
+  .feat input{padding:5px}
+  .feat .nm{flex:2} .feat .n{flex:1;text-align:right}
+  .feat .tag{font-size:10px;padding:2px 5px;border-radius:5px;font-weight:700}
+  .feat .tag.r{background:rgba(43,108,176,.15);color:var(--accent2)}
+  .feat .tag.c{background:rgba(197,48,48,.15);color:var(--bad)}
+  @media print{header,.tabs,.canvas-tools,.btnrow,.no-print{display:none!important}.grid{grid-template-columns:1fr}.card{break-inside:avoid;box-shadow:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🧱</div>
+  <div style="flex:1"><h1>Ο Μάστορας</h1><div class="sub">Επιμέτρηση &amp; Τοποθέτηση — Πλακάκια · Μάρμαρα · Γυψοσανίδες</div></div>
+  <button id="fsBtn" title="Πλήρης οθόνη" style="background:rgba(255,255,255,.18);border:none;color:#fff;font-size:18px;padding:8px 12px;border-radius:9px;cursor:pointer">⛶</button>
+</header>
+
+<div class="tabs" id="tabs">
+  <button data-tab="tiles" class="active">🧱 Δάπεδο (κάτοψη)</button>
+  <button data-tab="walls">🚿 Τοίχοι Μπάνιου</button>
+  <button data-tab="iso">🧊 3D Χώρος</button>
+  <button data-tab="screed">🪣 Τσιμεντοκονία</button>
+  <button data-tab="marble">🏛️ Μάρμαρα</button>
+  <button data-tab="gypsum">📐 Γυψοσανίδες</button>
+</div>
+
+<div class="wrap">
+
+<!-- ============================ FLOOR / TILES ============================ -->
+<div class="tabpane active" id="tab-tiles">
+<div class="grid">
+  <!-- INPUTS -->
+  <div>
+    <div class="card">
+      <h2>🗺️ Κάτοψη Σπιτιού <button class="btn sec mini" id="clearPlan">Καθαρισμός</button></h2>
+      <label>Τρόπος εισαγωγής</label>
+      <div class="seg" id="modeSeg">
+        <button data-m="rect" class="active">Ορθογώνια</button>
+        <button data-m="draw">Σχεδίαση</button>
+        <button data-m="measure">📏 Μέτρηση</button>
+      </div>
+      <div class="hint" id="modeHint">Πρόσθεσε δωμάτια &amp; κολώνες. Τράβα τα πάνω στο σχέδιο για να τα μετακινήσεις (γωνία = αλλαγή μεγέθους).</div>
+      <div id="featList"></div>
+      <div class="btnrow" id="rectBtns">
+        <button class="btn sec mini" id="addRoom">➕ Δωμάτιο</button>
+        <button class="btn sec mini" id="addVeranda">➕ Βεράντα/Αυλή</button>
+        <button class="btn sec mini" id="addOval">➕ Οβάλ/Στρογγυλό</button>
+        <button class="btn sec mini" id="addCol">➕ Κολώνα/Εσοχή</button>
+        <button class="btn sec mini" id="addTub">➕ Μπανιέρα/Ντουζιέρα</button>
+      </div>
+      <div class="btnrow" id="openBtns" style="margin-top:6px">
+        <button class="btn sec mini" id="addDoor">🚪 Πόρτα</button>
+        <button class="btn sec mini" id="addWindow">🪟 Παράθυρο</button>
+        <button class="btn sec mini" id="addBalcony">🚪 Μπαλκονόπορτα</button>
+        <button class="btn sec mini" id="addDrain">⊕ Σιφώνι</button>
+        <button class="btn sec mini" id="addWc">🚽 Λεκάνη</button>
+        <button class="btn sec mini" id="addBasin">🚰 Νιπτήρας</button>
+      </div>
+      <div id="drawBtns" style="display:none">
+        <div class="note">Πάτα σημεία πάνω στο σχέδιο για να χαράξεις το περίγραμμα. <b>Διπλό κλικ</b> ή «Κλείσιμο» για να ολοκληρώσεις.</div>
+        <div class="btnrow">
+          <button class="btn mini" id="finishPoly">✅ Κλείσιμο σχήματος</button>
+          <button class="btn sec mini" id="undoPt">↶ Αναίρεση σημείου</button>
+          <label class="inline" style="margin:0"><input type="checkbox" id="drawCol"> ως κολώνα</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🔲 Πλακάκι &amp; Αρμός</h2>
+      <div class="row">
+        <div><label>Πλάτος (cm)</label><input id="tileW" type="number" step="0.1" value="60"></div>
+        <div><label>Μήκος (cm)</label><input id="tileL" type="number" step="0.1" value="60"></div>
+      </div>
+      <div class="row">
+        <div><label>Πάχος (mm)</label><input id="tileT" type="number" step="0.5" value="9"></div>
+        <div><label>Αρμός (mm)</label><input id="grout" type="number" step="0.5" value="3"></div>
+      </div>
+      <div class="row">
+        <div><label class="small">m²/κουτί</label><input id="boxM2" type="number" step="0.01" value="1.44"></div>
+        <div><label class="small">€/κουτί</label><input id="boxPrice" type="number" step="0.01" value="0"></div>
+        <div><label class="small">Πόρτες (m)</label><input id="doorTotal" type="number" step="0.1" value="1.6" title="τρέχοντα μέτρα εσωτ. ανοιγμάτων — αφαιρούνται από το σοβατεπί"></div>
+        <div><label class="small">Μπαλκονόπ. (τεμ.)</label><input id="balconyN" type="number" step="1" value="0" title="μπαλκονόπορτες — προσθέτουν κατώφλι/μαρμαροποδιά & αφαιρούν σοβατεπί"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🎯 Σχέδιο Τοποθέτησης</h2>
+      <div class="seg" id="patternSeg">
+        <button data-p="straight" class="active">Ίσιο</button>
+        <button data-p="brick50">Χτιστό ½</button>
+        <button data-p="brick33">Χτιστό ⅓</button>
+        <button data-p="diagonal">Διαγώνιο</button>
+        <button data-p="herringbone">Ψαροκόκαλο</button>
+      </div>
+      <div style="height:10px"></div>
+      <label>Σημείο εκκίνησης</label>
+      <div class="seg" id="startSeg">
+        <button data-s="center" class="active">Κεντραρισμένο</button>
+        <button data-s="corner">Από γωνία</button>
+      </div>
+      <div style="height:10px"></div>
+      <label>Μετατόπιση Χ (cm): <span id="offXv">0</span></label>
+      <input id="offX" type="range" min="-120" max="120" value="0" step="1">
+      <label>Μετατόπιση Υ (cm): <span id="offYv">0</span></label>
+      <input id="offY" type="range" min="-120" max="120" value="0" step="1">
+      <label>Γωνία ψαροκόκαλου</label>
+      <div class="seg" id="hbSeg">
+        <button data-a="0" class="active">Ίσιο (0°)</button>
+        <button data-a="45">Διαγώνιο (45°)</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🏗️ Υπόστρωμα &amp; Κλίσεις</h2>
+      <label>Υπόστρωμα</label>
+      <select id="substrate">
+        <option value="screed">Τσιμεντοκονία (νέα)</option>
+        <option value="oldtile">Πάνω σε παλιό πλακάκι</option>
+        <option value="concrete">Μπετόν</option>
+        <option value="gypsum">Γυψοσανίδα</option>
+        <option value="absorbent">Πορώδες/απορροφητικό</option>
+      </select>
+      <div style="height:8px"></div>
+      <div class="inline"><input id="uneven" type="checkbox"><label style="margin:0">Δάπεδο ΟΧΙ αλφαδιασμένο (αυτοεπιπεδούμενο)</label></div>
+      <div class="row" id="levelRow" style="display:none"><div><label>Μέσο πάχος (mm)</label><input id="levelmm" type="number" step="1" value="5"></div></div>
+      <div style="height:8px"></div>
+      <div class="row"><div><label>Δόντι σπάτουλας (mm)</label>
+        <select id="trowel"><option value="6">6 (≤20cm)</option><option value="8">8 (20–40cm)</option><option value="10" selected>10 (40–60cm)</option><option value="12">12 (μεγάλα)</option></select>
+      </div></div>
+      <div class="inline"><input id="buttering" type="checkbox"><label style="margin:0">Διπλό κόλλημα (buttering)</label></div>
+    </div>
+  </div>
+
+  <!-- CANVAS -->
+  <div>
+    <div class="card">
+      <h2 style="align-items:center">
+        <span>🗺️ Οπτικοποίηση <span class="small" id="scaleInfo"></span></span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn sec mini" id="zoomOut" title="σμίκρυνση">➖</button>
+          <button class="btn sec mini" id="zoomIn" title="μεγέθυνση">➕</button>
+          <button class="btn sec mini" id="resetView" title="επαναφορά ζουμ">⟲</button>
+          <button class="btn sec mini" id="lockBtn">🔓 Ξεκλείδωτο</button>
+        </span>
+      </h2>
+      <div id="lockOverlayHint" class="small" style="display:none;margin:-4px 0 8px;color:var(--accent2)">🔒 Κλειδωμένο — σύρε για μετακίνηση, δύο δάχτυλα/ροδάκι για ζουμ, διπλό-πάτημα για επαναφορά. Τα δωμάτια δεν αλλάζουν.</div>
+      <canvas id="cv" width="820" height="640"></canvas>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--full)"></i> Ολόκληρο</span>
+        <span><i class="sw" style="background:var(--cut)"></i> Κομμένο ορθογώνιο</span>
+        <span><i class="sw" style="background:var(--tri)"></i> Κομμένο γωνιακό</span>
+        <span><i class="sw" style="background:var(--col);opacity:.5"></i> Κολώνα/εσοχή</span>
+      </div>
+      <div class="legend"><span class="small">💡 Οι αριθμοί πάνω στα πορτοκαλί πλακάκια = καθαρές διαστάσεις κοπής σε cm (Π×Υ).</span></div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div>
+    <div class="card">
+      <h2>📊 Αποτελέσματα</h2>
+      <div class="kpi">
+        <div class="box"><div class="v" id="kArea">–</div><div class="l">m² δάπεδο</div></div>
+        <div class="box"><div class="v" id="kFull">–</div><div class="l">ολόκληρα</div></div>
+        <div class="box"><div class="v" id="kCut">–</div><div class="l">κομμένα</div></div>
+        <div class="box"><div class="v" id="kWaste">–</div><div class="l">φύρα</div></div>
+      </div>
+      <div id="startTip" class="note"></div>
+    </div>
+    <div class="card">
+      <h2>🧰 Λίστα Υλικών</h2>
+      <table class="mat"><thead><tr><th>Υλικό</th><th class="num">Ποσότητα</th><th class="num">Συσκ.</th></tr></thead><tbody id="matBody"></tbody></table>
+      <div id="costLine" class="note" style="display:none"></div>
+    </div>
+    <div class="card">
+      <h2>👷 Κόστος Εργασίας</h2>
+      <label>Τρόπος χρέωσης</label>
+      <div class="seg" id="laborSeg">
+        <button data-l="m2" class="active">Ανά m²</button>
+        <button data-l="lump">Κατ'αποκοπή</button>
+      </div>
+      <div style="height:8px"></div>
+      <div class="row" id="laborM2Row">
+        <div><label>€/m² τοποθέτηση</label><input id="laborRate" type="number" step="0.5" value="0"></div>
+        <div><label>€/m σοβατεπί</label><input id="laborSkirt" type="number" step="0.5" value="0"></div>
+      </div>
+      <div class="row" id="laborLumpRow" style="display:none">
+        <div><label>Κατ'αποκοπή σύνολο (€)</label><input id="laborLump" type="number" step="10" value="0"></div>
+      </div>
+      <div id="laborOut" class="note"></div>
+    </div>
+    <div class="card cutlist">
+      <h2>✂️ Λίστα Κοψιμάτων</h2>
+      <table><thead><tr><th>Διαστάσεις (cm)</th><th class="num">Τεμ.</th><th>Τύπος</th></tr></thead><tbody id="cutBody"></tbody></table>
+    </div>
+    <div class="btnrow no-print">
+      <button class="btn" onclick="window.print()">🖨️ Εκτύπωση / PDF</button>
+      <button class="btn sec" id="saveBtn">💾 Αποθήκευση</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============================ WALLS ============================ -->
+<div class="tabpane" id="tab-walls">
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2>🚿 Τοίχοι <button class="btn sec mini" id="addWall">➕ Τοίχος</button></h2>
+      <div class="hint">Κάθε τοίχος μπάνιου ξεχωριστά. Τα κουμπιά προσθέτουν άνοιγμα (=χωρίς πλακάκι) στον <b>επιλεγμένο</b> τοίχο· διόρθωσε θέση/μέγεθος στο πεδίο «ανοίγματα».</div>
+      <div class="btnrow" style="margin-bottom:6px">
+        <button class="btn sec mini" data-open="window">🟦 Παράθυρο</button>
+        <button class="btn sec mini" data-open="door">🟩 Πόρτα</button>
+        <button class="btn sec mini" data-open="balcony">🟫 Μπαλκονόπορτα</button>
+        <button class="btn sec mini" data-open="tub">🟩 Μπανιέρα/Ντουζιέρα</button>
+      </div>
+      <div class="btnrow" style="margin-bottom:8px">
+        <button class="btn sec mini" data-point="pipe">🔴 Αναμονή (νερό/σιφόνι)</button>
+        <button class="btn sec mini" data-point="socket">🟧 Πρίζα</button>
+      </div>
+      <div id="wallList"></div>
+    </div>
+    <div class="card">
+      <h2>🔲 Πλακάκι Τοίχου</h2>
+      <div class="row"><div><label>Πλάτος (cm)</label><input id="wTileW" type="number" step="0.1" value="30"></div>
+        <div><label>Ύψος (cm)</label><input id="wTileL" type="number" step="0.1" value="60"></div></div>
+      <div class="row"><div><label>Αρμός (mm)</label><input id="wGrout" type="number" step="0.5" value="2"></div>
+        <div><label>Πάχος (mm)</label><input id="wTileT" type="number" step="0.5" value="8"></div></div>
+      <label>Σχέδιο</label>
+      <div class="seg" id="wPatternSeg"><button data-p="straight" class="active">Ίσιο</button><button data-p="brick50">Χτιστό ½</button></div>
+      <div style="height:8px"></div>
+      <label>Κάθετη εκκίνηση</label>
+      <div class="seg" id="wStartSeg"><button data-v="bottomfull" class="active">Ολόκληρα κάτω</button><button data-v="topfull">Ολόκληρα πάνω</button></div>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <h2 style="align-items:center">
+        <span>🚿 Όψη Τοίχου <span class="small" id="wallSel"></span></span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn sec mini" id="wZoomOut" title="σμίκρυνση">➖</button>
+          <button class="btn sec mini" id="wZoomIn" title="μεγέθυνση">➕</button>
+          <button class="btn sec mini" id="wResetView" title="επαναφορά ζουμ">⟲</button>
+          <button class="btn sec mini" id="wLockBtn">🔓 Ξεκλείδωτο</button>
+        </span>
+      </h2>
+      <div id="wLockHint" class="small" style="display:none;margin:-4px 0 8px;color:var(--accent2)">🔒 Κλειδωμένο — σύρε για μετακίνηση, δύο δάχτυλα/ροδάκι για ζουμ, διπλό-πάτημα για επαναφορά.</div>
+      <canvas id="wcv" width="820" height="500"></canvas>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--full)"></i> Ολόκληρο</span>
+        <span><i class="sw" style="background:var(--cut)"></i> Κομμένο</span>
+        <span><i class="sw" style="background:#2b6cb0"></i> Παράθυρο</span>
+        <span><i class="sw" style="background:#2f855a"></i> Πόρτα</span>
+        <span><i class="sw" style="background:#8a5a24"></i> Μπαλκονόπ.</span>
+        <span><i class="sw" style="background:#0d9488"></i> Μπανιέρα</span>
+        <span>🔴 αναμονή · 🟧 πρίζα</span>
+      </div>
+      <div class="legend"><span class="small">🔓 Ξεκλείδωτο: σύρε το άνοιγμα (παράθυρο/πόρτα/μπανιέρα) όπου θες· γωνία = μέγεθος. Οι αριθμοί = διαστάσεις κοπής.</span></div>
+      <div class="note">🔧 <b>Σειρά εργασίας:</b> ξεκίνα από τη 2η σειρά με λέιζερ/πήχη — <b>άσε τη χαμηλότερη (κομμένη) σειρά για το τέλος</b>, αφού στρωθεί το δάπεδο. Ξεκίνα από ολόκληρο πλακάκι σε ορατή γωνία· τα κομμένα πάνε στην αφανή.</div>
+    </div>
+  </div>
+  <div>
+    <div class="card"><h2>📊 Σύνολα Τοίχων</h2>
+      <div class="kpi"><div class="box"><div class="v" id="wArea">–</div><div class="l">m² τοίχοι</div></div>
+      <div class="box"><div class="v" id="wPieces">–</div><div class="l">πλακάκια</div></div></div>
+      <table class="mat"><thead><tr><th>Υλικό</th><th class="num">Ποσότητα</th></tr></thead><tbody id="wMat"></tbody></table>
+    </div>
+    <div class="card cutlist"><h2>✂️ Κοψίματα (επιλεγμένος τοίχος)</h2>
+      <table><thead><tr><th>Διαστάσεις (cm)</th><th class="num">Τεμ.</th><th>Τύπος</th></tr></thead><tbody id="wCutBody"></tbody></table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============================ 3D ISO ============================ -->
+<div class="tabpane" id="tab-iso">
+<div class="grid" style="grid-template-columns:300px 1fr">
+  <div>
+    <div class="card">
+      <h2>🧊 3D Απεικόνιση</h2>
+      <label>Δωμάτιο</label>
+      <select id="isoRoom"></select>
+      <div style="height:8px"></div>
+      <div class="row"><div><label>Ύψος τοίχου (m)</label><input id="isoH" type="number" step="0.05" value="2.4"></div>
+        <div><label>Στροφή</label><div class="seg" id="isoRot"><button data-r="0" class="active">◱</button><button data-r="1">◲</button><button data-r="2">◳</button><button data-r="3">◰</button></div></div>
+      </div>
+      <div class="hint">Δάπεδο + 2 τοίχοι με πλακάκια, πόρτες/παράθυρα (χρωματιστά), μπανιέρα/ντουζιέρα &amp; σιφώνι από την κάτοψη. Τα ανοίγματα των τοίχων: <b>Τοίχος 1</b> → δεξιός, <b>Τοίχος 2</b> → αριστερός.</div>
+    </div>
+    <div class="card">
+      <h2>🎨 Υπόμνημα</h2>
+      <div class="legend">
+        <span><i class="sw" style="background:#e7edf3"></i> Δάπεδο</span>
+        <span><i class="sw" style="background:#cdd9e5"></i> Τοίχος</span>
+        <span><i class="sw" style="background:#2b6cb0"></i> Παράθυρο</span>
+        <span><i class="sw" style="background:#2f855a"></i> Πόρτα</span>
+        <span><i class="sw" style="background:#0d9488"></i> Μπανιέρα/Ντουζ.</span>
+        <span>🔴 αναμονή · 🟧 πρίζα · ⊕ σιφώνι</span>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2 style="align-items:center"><span>🧊 Προβολή</span>
+      <span style="display:flex;gap:6px">
+        <button class="btn sec mini" id="iZoomOut">➖</button>
+        <button class="btn sec mini" id="iZoomIn">➕</button>
+        <button class="btn sec mini" id="iResetView">⟲</button>
+      </span>
+    </h2>
+    <canvas id="icv" width="820" height="600"></canvas>
+    <div class="small" style="margin-top:6px">Σύρε για μετακίνηση, δύο δάχτυλα/ροδάκι για ζουμ. Σχηματική απεικόνιση (όχι κοψίματα).</div>
+  </div>
+</div>
+</div>
+
+<!-- ============================ SCREED ============================ -->
+<div class="tabpane" id="tab-screed">
+<div class="grid" style="grid-template-columns:1.3fr 1fr">
+  <div>
+    <div class="card">
+      <h2>🪣 Τσιμεντοκονία <span style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn sec mini" id="addScreed">➕ Δωμάτιο</button><button class="btn sec mini" id="addRamp">➕ Ράμπα αυλής</button><button class="btn sec mini" id="addScreedWall">➕ Τοιχίο μπετόν</button></span></h2>
+      <div class="hint"><b>Δωμάτιο</b>: τελικό ύψος (ίδιο παντού) + υπάρχον σε <b>9 σημεία</b> (γωνίες+τοίχοι+κέντρο). <b>Ράμπα/Τοιχίο αυλής</b>: πλάτος×μήκος + πάχος στη μία πλευρά και στην άλλη (σήκωμα/κλίση για αλφάδιασμα).</div>
+      <div id="screedList"></div>
+    </div>
+    <div class="card">
+      <h2>🧪 Μίγμα</h2>
+      <label>Τύπος</label>
+      <div class="seg" id="screedTypeSeg">
+        <button data-t="trad" class="active">Παραδοσιακή (τσιμέντο+άμμος)</button>
+        <button data-t="ready">Έτοιμη (σακιά)</button>
+      </div>
+      <div style="height:8px"></div>
+      <div class="row" id="screedRatioRow">
+        <div><label>Αναλογία τσιμέντο:άμμος</label>
+          <select id="screedRatio"><option value="3">1 : 3 (δυνατή)</option><option value="4" selected>1 : 4 (τυπική)</option><option value="5">1 : 5 (ελαφριά)</option></select>
+        </div>
+        <div><label>Σακί τσιμέντου</label><select id="cementBag"><option value="50">50 kg</option><option value="25">25 kg</option></select></div>
+      </div>
+      <div class="row" id="screedReadyRow" style="display:none">
+        <div><label>Απόδοση σακιού (kg/m²/cm)</label><input id="readyRate" type="number" step="0.5" value="19"></div>
+        <div><label>Σακί</label><select id="readyBag"><option value="25">25 kg</option><option value="30">30 kg</option><option value="40">40 kg</option></select></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>📊 Αποτελέσματα ανά δωμάτιο</h2>
+      <table><thead><tr><th>Δωμάτιο</th><th class="num">m²</th><th class="num">Πάχος (cm)</th><th class="num">m³</th></tr></thead><tbody id="screedRes"></tbody></table>
+      <div class="kpi" style="margin-top:10px">
+        <div class="box"><div class="v" id="screedVol">–</div><div class="l">m³ σύνολο</div></div>
+        <div class="box"><div class="v" id="screedM2">–</div><div class="l">m² σύνολο</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>🧰 Υλικά (σύνολο)</h2>
+      <table class="mat"><thead><tr><th>Υλικό</th><th class="num">Ποσότητα</th></tr></thead><tbody id="screedMat"></tbody></table>
+      <div class="note">💡 Το πάχος min/max δείχνει πόσο «γέρνει» το δάπεδο. Για πάχος &gt;5–6cm βάλε πλέγμα/ενισχυμένο κονίαμα· κάτω από ~2cm προτίμησε αυτοεπιπεδούμενο. Πρόβλεψε ~10% επιπλέον για απώλειες.</div>
+    </div>
+    <div class="card">
+      <h2 style="align-items:center"><span>🖼️ Απεικόνιση</span>
+        <span style="display:flex;gap:6px;align-items:center">
+          <select id="scvSel" style="padding:5px;font-size:12px;width:auto"></select>
+          <span class="seg" id="scVizSeg" style="display:flex"><button data-v="map" class="active">Χάρτης πάχους</button><button data-v="3d">3D</button></span>
+        </span>
+      </h2>
+      <canvas id="scv" width="820" height="420"></canvas>
+      <div class="legend"><span class="small">Χρώμα = πάχος κονιάματος (πράσινο=λεπτό → κόκκινο=χοντρό). Δείχνει πού «γέρνει» το δάπεδο.</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============================ MARBLE ============================ -->
+<div class="tabpane" id="tab-marble">
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div>
+      <div class="card"><h2>🏛️ Κομμάτια Μαρμάρου</h2>
+        <div class="hint">Ποδιές, σκαλοπάτια, πάγκοι, στραβοπατήματα (cm).</div>
+        <table><thead><tr><th>Περιγραφή</th><th class="num">Μήκος</th><th class="num">Πλάτος</th><th class="num">Τεμ.</th><th></th></tr></thead><tbody id="marbleBody"></tbody></table>
+        <div class="btnrow"><button class="btn sec" id="addMarble">➕ Προσθήκη</button></div>
+      </div>
+      <div class="card"><h2>⚙️ Παράμετροι</h2>
+        <div class="row"><div><label>Πάχος (cm)</label><input id="mThick" type="number" step="0.1" value="2"></div>
+          <div><label>Πυκνότητα (kg/m³)</label><input id="mDens" type="number" step="50" value="2700"></div></div>
+        <div class="row"><div><label>Τοποθέτηση</label><select id="mMethod"><option value="mud">Λάσπωμα</option><option value="glue">Λευκή κόλλα</option></select></div></div>
+        <div class="inline"><input id="mSeal" type="checkbox" checked><label style="margin:0">Αδιαβροχοποίηση/στοκάρισμα</label></div>
+      </div>
+    </div>
+    <div><div class="card"><h2>📊 Αποτελέσματα</h2>
+      <div class="kpi"><div class="box"><div class="v" id="mArea">–</div><div class="l">m²</div></div><div class="box"><div class="v" id="mWeight">–</div><div class="l">kg βάρος</div></div></div>
+      <table class="mat"><thead><tr><th>Υλικό</th><th class="num">Ποσότητα</th></tr></thead><tbody id="marbleMat"></tbody></table>
+      <div class="note">💡 Διαλογή «νερών» πριν την τοποθέτηση. Μάρμαρα-οδηγοί πρώτα για τις κλίσεις.</div>
+    </div></div>
+  </div>
+</div>
+
+<!-- ============================ GYPSUM ============================ -->
+<div class="tabpane" id="tab-gypsum">
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div>
+      <div class="card"><h2>📐 Επιφάνεια</h2>
+        <div class="seg" id="gTypeSeg"><button data-g="wall" class="active">Χώρισμα/τοίχος</button><button data-g="ceiling">Ταβάνι</button></div>
+        <div style="height:10px"></div>
+        <div class="row"><div><label>Μήκος (m)</label><input id="gW" type="number" step="0.01" value="4"></div><div><label>Ύψος/Πλάτος (m)</label><input id="gH" type="number" step="0.01" value="2.7"></div></div>
+        <div class="row"><div><label>Πλευρές</label><select id="gSides"><option value="2">2 (χώρισμα)</option><option value="1">1 (επένδυση)</option></select></div><div><label>Αποστ. ορθοστ. (cm)</label><input id="gStud" type="number" step="1" value="60"></div></div>
+        <div class="row"><div><label>Ανοίγματα — πόρτα/παράθυρο (m²)</label><input id="gOpen" type="number" step="0.1" value="0" title="αφαιρείται από τα φύλλα· προστίθεται σκελετός περιμετρικά"></div></div>
+      </div>
+      <div class="card"><h2>🔲 Γυψοσανίδα</h2>
+        <div class="row"><div><label>Φύλλο</label><select id="gBoard"><option value="1.2x2.6">1,20×2,60</option><option value="1.2x3">1,20×3,00</option><option value="1.2x2">1,20×2,00</option></select></div>
+          <div><label>Τύπος</label><select id="gKind"><option>Κοινή</option><option>Ανθυγρή</option><option>Πυράντοχη</option></select></div></div>
+        <div class="inline"><input id="gInsul" type="checkbox" checked><label style="margin:0">Πετροβάμβακας</label></div>
+      </div>
+      <div class="card"><h2>🗄️ Ειδική κατασκευή</h2>
+        <div class="hint">Χτιστή κατασκευή από γυψοσανίδα (κόντρα σε τοίχο). Προσθέτει φύλλα + σκελετό + βίδες.</div>
+        <label>Τύπος</label>
+        <select id="gSpecial"><option value="none">— καμία —</option><option value="bookcase">Βιβλιοθήκη</option><option value="tv">Έπιπλο TV</option><option value="shelf">Ραφιέρα</option><option value="niche">Κρυφή εσοχή</option></select>
+        <div class="row" id="gSpecRow" style="display:none">
+          <div><label>Πλάτος (m)</label><input id="gSpW" type="number" step="0.05" value="2"></div>
+          <div><label>Ύψος (m)</label><input id="gSpH" type="number" step="0.05" value="2"></div>
+        </div>
+        <div class="row" id="gSpecRow2" style="display:none">
+          <div><label>Βάθος (cm)</label><input id="gSpD" type="number" step="1" value="30"></div>
+          <div><label>Ράφια (τεμ.)</label><input id="gSpShelves" type="number" step="1" value="4"></div>
+        </div>
+      </div>
+    </div>
+    <div><div class="card"><h2>📊 Υλικά</h2>
+      <div class="kpi"><div class="box"><div class="v" id="gArea">–</div><div class="l">m²</div></div><div class="box"><div class="v" id="gBoards">–</div><div class="l">φύλλα</div></div></div>
+      <table class="mat"><thead><tr><th>Υλικό</th><th class="num">Ποσότητα</th></tr></thead><tbody id="gypsumMat"></tbody></table>
+      <div class="note">💡 Πριν κλείσεις τον σκελετό: καλώδια με ηλεκτρολόγο. Αρμοί → χαρτοταινία + στόκος σε 2–3 χέρια.</div>
+    </div>
+    <div class="card">
+      <h2 style="align-items:center"><span>🖼️ Απεικόνιση</span>
+        <span class="seg" id="gVizSeg" style="display:flex"><button data-v="2d" class="active">2D όψη</button><button data-v="3d">3D</button></span>
+      </h2>
+      <canvas id="gcv" width="820" height="460"></canvas>
+      <div class="legend">
+        <span><i class="sw" style="background:#dfe6ee"></i> Γυψοσανίδα</span>
+        <span><i class="sw" style="background:#8a97a6"></i> Σκελετός (προφίλ)</span>
+        <span><i class="sw" style="background:rgba(150,160,175,.5);border:1.5px dashed var(--bad)"></i> Άνοιγμα</span>
+        <span><i class="sw" style="background:#b98a4b"></i> Ειδική κατασκευή/ράφια</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<footer style="text-align:center;padding:16px 12px 28px;color:var(--muted);font-size:12px">© by Chronis Makris</footer>
+
+<script>
+"use strict";
+/* ================= Ο ΜΑΣΤΟΡΑΣ — engine ================= */
+const $=id=>document.getElementById(id);
+const num=id=>{const el=$(id);return el?(parseFloat(el.value)||0):0;};
+const round=(v,s=0.5)=>Math.round(v/s)*s;
+
+/* ---- PWA service worker (μόνο όταν φιλοξενείται σε http/https) ---- */
+try{if('serviceWorker' in navigator && location.protocol.indexOf('http')===0)navigator.serviceWorker.register('sw.js').catch(function(){});}catch(e){}
+
+/* ---- FULLSCREEN ---- */
+if($('fsBtn'))$('fsBtn').onclick=()=>{try{const el=document.documentElement;if(!document.fullscreenElement&&!document.webkitFullscreenElement){(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);}else{(document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document);}}catch(e){}};
+
+/* ---- TABS ---- */
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.querySelectorAll('.tabpane').forEach(p=>p.classList.remove('active'));
+  $('tab-'+b.dataset.tab).classList.add('active');
+  if(b.dataset.tab==='tiles') fitAndDraw();
+  if(b.dataset.tab==='walls') calcWalls();
+  if(b.dataset.tab==='iso') drawIso();
+  if(b.dataset.tab==='screed') calcScreed();
+  if(b.dataset.tab==='gypsum') calcGypsum();
+});
+function segInit(segId,attr,cb){document.querySelectorAll('#'+segId+' button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#'+segId+' button').forEach(x=>x.classList.remove('active'));b.classList.add('active');cb(b.dataset[attr]);});}
+
+/* ---- geometry helpers ---- */
+function shoelace(r){let a=0;for(let i=0;i<r.length;i++){const j=(i+1)%r.length;a+=r[i][0]*r[j][1]-r[j][0]*r[i][1];}return a/2;}
+function ringBBox(r){let x0=1e15,y0=1e15,x1=-1e15,y1=-1e15;for(const p of r){if(p[0]<x0)x0=p[0];if(p[0]>x1)x1=p[0];if(p[1]<y0)y0=p[1];if(p[1]>y1)y1=p[1];}return{x0,y0,x1,y1};}
+function polyBBox(poly){let b={x0:1e15,y0:1e15,x1:-1e15,y1:-1e15};poly.regions.forEach(r=>{const q=ringBBox(r);b.x0=Math.min(b.x0,q.x0);b.y0=Math.min(b.y0,q.y0);b.x1=Math.max(b.x1,q.x1);b.y1=Math.max(b.y1,q.y1);});return b;}
+function polyObj(rings){return {regions:rings,inverted:false};}
+function rot(p,c,a){const s=Math.sin(a),co=Math.cos(a),dx=p[0]-c.x,dy=p[1]-c.y;return[c.x+dx*co-dy*s,c.y+dx*s+dy*co];}
+
+/* ================= FLOOR STATE ================= */
+let pattern='straight', startMode='center', mode='rect', hbAngle=0, laborMode='m2';
+let features=[]; // {id,kind:'room'|'column',type,shape:'rect'|'poly',name,x,y,w,h,points:[[x,y]]}
+let drawPts=[]; let uid=1;
+// type -> geometry kind + default label.
+// room/veranda add tiled area; column/niche/tub/shower are holes (no tile); door/window/balcony are openings (drawn only, feed skirting/thresholds)
+const FTYPES={
+  room:{k:'room',n:'Δωμάτιο'}, veranda:{k:'room',n:'Βεράντα/Αυλή'},
+  niche:{k:'column',n:'Εσοχή'}, column:{k:'column',n:'Κολώνα'}, tub:{k:'column',n:'Μπανιέρα'}, shower:{k:'column',n:'Ντουζιέρα'},
+  door:{k:'opening',n:'Πόρτα'}, window:{k:'opening',n:'Παράθυρο'}, balcony:{k:'opening',n:'Μπαλκονόπορτα'},
+  drain:{k:'marker',n:'Σιφώνι'}, wc:{k:'marker',n:'Λεκάνη (WC)'}, basin:{k:'marker',n:'Νιπτήρας'}
+};
+const OPENCOL={door:'#2f855a',window:'#2b6cb0',balcony:'#8a5a24'};
+
+function defaultPlan(){
+  features=[
+    {id:uid++,type:'room',kind:'room',shape:'rect',name:'Σαλόνι',x:0,y:0,w:450,h:400},
+    {id:uid++,type:'room',kind:'room',shape:'rect',name:'Κουζίνα',x:450,y:0,w:250,h:280},
+    {id:uid++,type:'room',kind:'room',shape:'rect',name:'Μπάνιο',x:450,y:280,w:250,h:120},
+    {id:uid++,type:'room',kind:'room',shape:'rect',name:'Διάδρομος',x:0,y:400,w:700,h:120},
+    {id:uid++,type:'column',kind:'column',shape:'rect',name:'Κολώνα',x:410,y:300,w:40,h:40},
+    {id:uid++,type:'tub',kind:'column',shape:'rect',name:'Μπανιέρα',x:470,y:290,w:170,h:70},
+    {id:uid++,type:'wc',kind:'marker',shape:'rect',name:'Λεκάνη',x:650,y:335,w:40,h:55},
+    {id:uid++,type:'drain',kind:'marker',shape:'rect',name:'Σιφώνι',x:560,y:370,w:12,h:12},
+    {id:uid++,type:'veranda',kind:'room',shape:'rect',name:'Βεράντα',x:700,y:0,w:180,h:400},
+    {id:uid++,type:'balcony',kind:'opening',shape:'rect',name:'Μπαλκονόπ.',x:690,y:150,w:20,h:100},
+    {id:uid++,type:'door',kind:'opening',shape:'rect',name:'Πόρτα',x:200,y:392,w:80,h:16},
+  ];
+}
+
+/* ---- feature list UI ---- */
+function renderFeatList(){
+  const c=$('featList');features.forEach(migrateCurve);
+  const opts=t=>Object.entries(FTYPES).map(([k,v])=>`<option value="${k}" ${t===k?'selected':''}>${v.n}</option>`).join('');
+  const tagTxt=k=>k==='room'?'Δ':k==='opening'?'🚪':'✖';
+  c.innerHTML=features.map(f=>`<div class="feat" data-id="${f.id}" style="flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
+    <span class="tag ${f.kind==='room'?'r':'c'}">${tagTxt(f.kind)}</span>
+    <input class="nm" style="flex:1;min-width:130px;padding:8px;font-size:14px" value="${f.name}" data-f="name" placeholder="όνομα">
+    <button class="btn sec mini" data-del="1">✕</button>
+    <div style="flex:1 1 100%;display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-top:6px">
+      <select data-f="type" style="flex:1;min-width:118px;padding:8px;font-size:13px">${opts(f.type||(f.kind==='room'?'room':'column'))}</select>
+      ${f.shape==='rect'?`
+        <div style="display:flex;flex-direction:column;flex:0 0 auto"><span class="small">Πλάτος m</span><input type="number" step="0.01" value="${(f.w/100).toFixed(2)}" data-f="w" style="width:84px;padding:8px;text-align:right"></div>
+        <div style="display:flex;flex-direction:column;flex:0 0 auto"><span class="small">${f.kind==='room'?'Μήκος':'Βάθος'} m</span><input type="number" step="0.01" value="${(f.h/100).toFixed(2)}" data-f="h" style="width:84px;padding:8px;text-align:right"></div>`:
+        `<span class="small" style="flex:1">πολύγωνο ${f.points.length} σημ.</span>`}
+    </div>
+    ${(f.shape==='rect'&&(f.kind==='room'||f.kind==='column'))?`<div style="flex:1 1 100%;display:flex;gap:5px;margin-top:6px">
+      <select data-f="addCurve" style="flex:1;padding:7px;font-size:12px">
+        <option value="">➕ Κυρτός τοίχος σε…</option>
+        <option value="top">πάνω</option><option value="bottom">κάτω</option><option value="left">αριστερά</option><option value="right">δεξιά</option>
+      </select>
+      ${(f.curves&&f.curves.length)?`<button class="btn sec mini" data-clearcurves="1" title="διαγραφή όλων">🗑 ${f.curves.length} καμπ.</button>`:''}
+    </div>`:''}</div>`).join('');
+  c.querySelectorAll('.feat').forEach(row=>{
+    const f=features.find(x=>x.id==row.dataset.id);
+    row.querySelectorAll('input').forEach(inp=>inp.oninput=()=>{
+      const k=inp.dataset.f;
+      if(k==='name')f.name=inp.value; else f[k]=(parseFloat(inp.value)||0)*100;
+      fitAndDraw();
+    });
+    row.querySelectorAll('select').forEach(sel=>sel.onchange=()=>{
+      if(sel.dataset.f==='type'){f.type=sel.value;f.kind=FTYPES[sel.value].k;if(f.kind!=='room'&&f.kind!=='column')delete f.curves;}
+      else if(sel.dataset.f==='addCurve'){if(sel.value){f.curves=f.curves||[];f.curves.push({side:sel.value,t:0.5,bulge:Math.round(Math.min(f.w,f.h)*0.3)});}}
+      renderFeatList();fitAndDraw();
+    });
+    const cc=row.querySelector('[data-clearcurves]');if(cc)cc.onclick=()=>{delete f.curves;renderFeatList();fitAndDraw();};
+    row.querySelector('[data-del]').onclick=()=>{features=features.filter(x=>x.id!=f.id);renderFeatList();fitAndDraw();};
+  });
+}
+
+/* ================= REGION ================= */
+function rectCorners(f){return {TL:[f.x,f.y],TR:[f.x+f.w,f.y],BR:[f.x+f.w,f.y+f.h],BL:[f.x,f.y+f.h]};}
+function sideAB(f,side){const c=rectCorners(f),map={top:[c.TL,c.TR],right:[c.TR,c.BR],bottom:[c.BR,c.BL],left:[c.BL,c.TL]};return map[side];}
+function migrateCurve(f){if(f.curve){f.curves=(f.curves||[]).concat([f.curve]);delete f.curve;}return f;}
+// one wall's points with SUPERPOSED raised-cosine bumps (each: peak at t along wall, height=bulge); endpoints fixed
+function sideOffsetPts(A,B,bumps){const dx=B[0]-A[0],dy=B[1]-A[1],len=Math.hypot(dx,dy)||1,nx=dy/len,ny=-dx/len,pts=[],N=44;
+  for(let i=1;i<=N;i++){const u=i/N;let off=0;
+    bumps.forEach(b=>{const t=Math.max(0.06,Math.min(0.94,b.t)),hw=Math.min(0.4,t,1-t)||0.06,d=Math.abs(u-t);if(d<hw){const f=Math.cos(d*Math.PI/(2*hw));off+=b.bulge*f*f;}});
+    pts.push([A[0]+u*dx+nx*off,A[1]+u*dy+ny*off]);}
+  return pts;}
+// handle position for a single bump on a feature's side
+function bumpHandle(f,b){const[A,B]=sideAB(f,b.side),t=Math.max(0.06,Math.min(0.94,b.t)),dx=B[0]-A[0],dy=B[1]-A[1],len=Math.hypot(dx,dy)||1,nx=dy/len,ny=-dx/len;
+  return{A,B,dx,dy,len,nx,ny,t,hx:A[0]+t*dx+nx*b.bulge,hy:A[1]+t*dy+ny*b.bulge};}
+function ringOf(f){
+  if(f.shape==='poly') return f.points.map(p=>[p[0],p[1]]);
+  if(f.shape==='ellipse'){const cx=f.x+f.w/2,cy=f.y+f.h/2,rx=f.w/2,ry=f.h/2,N=48,r=[];for(let i=0;i<N;i++){const a=2*Math.PI*i/N;r.push([cx+rx*Math.cos(a),cy+ry*Math.sin(a)]);}return r;}
+  migrateCurve(f);const c=rectCorners(f);
+  if(f.curves&&f.curves.length){const sides={top:[c.TL,c.TR],right:[c.TR,c.BR],bottom:[c.BR,c.BL],left:[c.BL,c.TL]};
+    let ring=[c.TL];['top','right','bottom','left'].forEach(s=>{const[A,B]=sides[s];const bumps=f.curves.filter(b=>b.side===s&&b.bulge);if(bumps.length)ring=ring.concat(sideOffsetPts(A,B,bumps));else ring.push(B);});
+    ring.pop();return ring;}
+  return [c.TL,c.TR,c.BR,c.BL];
+}
+function buildRegion(feats){
+  const rooms=feats.filter(f=>f.kind==='room');
+  const cols=feats.filter(f=>f.kind==='column');
+  if(!rooms.length) return null;
+  let poly=polyObj([ringOf(rooms[0])]);
+  try{
+    for(let i=1;i<rooms.length;i++) poly=PolyBool.union(poly,polyObj([ringOf(rooms[i])]));
+    for(const c of cols) poly=PolyBool.difference(poly,polyObj([ringOf(c)]));
+  }catch(e){console.warn('region',e);}
+  return poly;
+}
+
+/* ================= PATTERN GENERATORS ================= */
+function genGrid(bb,o){
+  const px=o.tw+o.g, py=o.tl+o.g;
+  const cx=(bb.x0+bb.x1)/2, cy=(bb.y0+bb.y1)/2;
+  let sx,sy;
+  if(o.startMode==='center'){sx=cx-Math.round((cx-bb.x0)/px)*px-o.tw/2; sy=cy-Math.round((cy-bb.y0)/py)*py-o.tl/2;}
+  else {sx=bb.x0; sy=bb.y0;}
+  sx+=o.offX; sy+=o.offY;
+  const shift=o.pattern==='brick50'?0.5:o.pattern==='brick33'?(1/3):0;
+  const rings=[]; let row=0;
+  for(let y=sy-py*2;y<bb.y1+py;y+=py){
+    const rs=(o.pattern==='brick33'?(row%3):(row%2))*shift*px;
+    for(let x=sx-px*2;x<bb.x1+px;x+=px){const X=x+rs;
+      rings.push([[X,y],[X+o.tw,y],[X+o.tw,y+o.tl],[X,y+o.tl]]);}
+    row++;
+  }
+  return rings;
+}
+function genDiagonal(bb,o){
+  const px=o.tw+o.g,py=o.tl+o.g,th=Math.PI/4,c=Math.cos(th),s=Math.sin(th);
+  const ux={x:c*px,y:s*px},uy={x:-s*py,y:c*py};
+  const cx=(bb.x0+bb.x1)/2+o.offX,cy=(bb.y0+bb.y1)/2+o.offY;
+  const span=Math.hypot(bb.x1-bb.x0,bb.y1-bb.y0),R=Math.ceil(span/Math.min(px,py))+3;
+  const e1x=c*o.tw,e1y=s*o.tw,e2x=-s*o.tl,e2y=c*o.tl,rings=[];
+  for(let i=-R;i<=R;i++)for(let j=-R;j<=R;j++){
+    const ox=cx+i*ux.x+j*uy.x,oy=cy+i*ux.y+j*uy.y;
+    rings.push([[ox,oy],[ox+e1x,oy+e1y],[ox+e1x+e2x,oy+e1y+e2y],[ox+e2x,oy+e2y]]);
+  }
+  return rings;
+}
+// gapless herringbone for any L,W (lattice derivation: va=(-Wg,Wg), vb=(Lg+Wg,Lg-Wg))
+function genHerringbone(bb,o){
+  const L=Math.max(o.tw,o.tl),W=Math.min(o.tw,o.tl),Lg=L+o.g,Wg=W+o.g;
+  const va={x:-Wg,y:Wg},vb={x:Lg+Wg,y:Lg-Wg};
+  const cx=(bb.x0+bb.x1)/2+o.offX,cy=(bb.y0+bb.y1)/2+o.offY;
+  const span=Math.hypot(bb.x1-bb.x0,bb.y1-bb.y0)*(hbAngle?1.5:1);
+  const R=Math.ceil(span/Math.min(Wg,Lg))+4, rings=[];
+  const c={x:cx,y:cy}, ang=hbAngle*Math.PI/180;
+  const push=(x0,y0,w,h)=>{
+    let r=[[x0,y0],[x0+w,y0],[x0+w,y0+h],[x0,y0+h]];
+    if(hbAngle) r=r.map(p=>rot(p,c,ang));
+    rings.push(r);
+  };
+  for(let m=-R;m<=R;m++)for(let n=-R;n<=R;n++){
+    const hx=cx+m*va.x+n*vb.x, hy=cy+m*va.y+n*vb.y;
+    push(hx,hy,L,W);              // horizontal plank
+    push(hx+Lg,hy,W,L);          // vertical plank
+  }
+  return rings;
+}
+function genPattern(bb,o){
+  if(o.pattern==='diagonal')return genDiagonal(bb,o);
+  if(o.pattern==='herringbone')return genHerringbone(bb,o);
+  return genGrid(bb,o);
+}
+
+/* ================= TILING ENGINE (shared) ================= */
+function tileRegion(regionPoly,o){
+  const bb=polyBBox(regionPoly);
+  const cand=genPattern(bb,o);
+  const regSeg=PolyBool.segments(regionPoly);
+  const fullArea=o.tw*o.tl, out=[]; let full=0,cut=0,used=0;
+  for(const ring of cand){
+    const rb=ringBBox(ring);
+    if(rb.x1<bb.x0||rb.x0>bb.x1||rb.y1<bb.y0||rb.y0>bb.y1) continue;
+    used++; if(used>7000) break;
+    let res;
+    try{res=PolyBool.polygon(PolyBool.selectIntersect(PolyBool.combine(regSeg,PolyBool.segments(polyObj([ring])))));}
+    catch(e){continue;}
+    if(!res.regions.length) continue;
+    let tot=0; res.regions.forEach(r=>tot+=Math.abs(shoelace(r)));
+    if(tot<0.4) continue;
+    const isFull=tot>=fullArea-0.8;
+    const cls=classify(res.regions,tot,isFull);
+    out.push(cls); if(isFull)full++;else cut++;
+  }
+  return {tiles:out,full,cut,bb,area:regionArea(regionPoly)};
+}
+function classify(rings,tot,isFull){
+  let big=rings[0],ba=Math.abs(shoelace(rings[0]));
+  for(const r of rings){const a=Math.abs(shoelace(r));if(a>ba){ba=a;big=r;}}
+  const b=ringBBox(big),w=b.x1-b.x0,h=b.y1-b.y0;
+  const isRect=rings.length===1&&big.length<=5&&Math.abs(w*h-ba)<Math.max(1.2,0.04*w*h);
+  return {rings,full:isFull,area:tot,w,h,cx:(b.x0+b.x1)/2,cy:(b.y0+b.y1)/2,rect:isRect};
+}
+function pointInRing(pt,ring){let x=pt[0],y=pt[1],inside=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))inside=!inside;}return inside;}
+// area with holes handled by even-odd nesting (polybool ring winding is not guaranteed)
+function regionArea(poly){const rings=poly.regions;let total=0;
+  for(let i=0;i<rings.length;i++){const a=Math.abs(shoelace(rings[i]));let depth=0;const p=rings[i][0];
+    for(let j=0;j<rings.length;j++){if(j!==i&&pointInRing(p,rings[j]))depth++;}
+    total+=(depth%2===0?a:-a);}
+  return Math.abs(total);}
+function regionPerim(poly){let p=0;poly.regions.forEach(r=>p+=ringPerim(r));return p;}
+function ringPerim(r){let p=0;for(let i=0;i<r.length;i++){const j=(i+1)%r.length;p+=Math.hypot(r[j][0]-r[i][0],r[j][1]-r[i][1]);}return p;}
+// ιδανικό κόψιμο σοβατεπιού από πλακάκι tw×tl (cm): λωρίδες πλάτους ~7.5–8cm, μηδέν φύρα (ακέραιο διαιρέτη)
+function skirtingPlan(tw,tl){
+  const TMIN=7.5,TMAX=8.0; let best=null;
+  [[tw,tl],[tl,tw]].forEach(([A,B])=>{
+    const nmax=Math.max(1,Math.floor(A/5));
+    for(let n=1;n<=nmax;n++){const w=A/n;
+      const dist=w<TMIN?TMIN-w:w>TMAX?w-TMAX:0;
+      const c={w,n,len:B,run:n*B,dist};
+      if(!best||c.dist<best.dist-1e-9||(Math.abs(c.dist-best.dist)<1e-9&&c.run>best.run))best=c;}
+  });
+  return best; // {w:πλάτος λωρίδας, n:λωρίδες/πλακάκι, len:μήκος λωρίδας, run:τρέχ.cm/πλακάκι}
+}
+
+/* ================= FLOOR RECALC ================= */
+let lastFloor=null;
+function opts(){return{tw:num('tileW'),tl:num('tileL'),g:num('grout')/10,pattern,startMode,offX:num('offX'),offY:num('offY')};}
+function recalcFloor(){
+  const reg=buildRegion(features);
+  if(!reg||!reg.regions.length){lastFloor=null;drawFloor(null);clearResults();return;}
+  const o=opts();
+  const r=tileRegion(reg,o);
+  lastFloor={reg,r,o};
+  drawFloor(lastFloor);
+  showResults(r,o);
+}
+function clearResults(){['kArea','kFull','kCut','kWaste'].forEach(id=>$(id).textContent='–');$('matBody').innerHTML='';$('cutBody').innerHTML='';$('startTip').innerHTML='Πρόσθεσε τουλάχιστον ένα δωμάτιο.';}
+
+function trowelRate(mm){return({6:2.8,8:4.2,10:5.8,12:7.5})[mm]||5;}
+function wasteFor(p){return({straight:0.10,brick50:0.12,brick33:0.12,diagonal:0.15,herringbone:0.18})[p]||0.12;}
+
+function showResults(r,o){
+  const area=r.area/10000;
+  let full=r.full,cut=r.cut;
+  const cg={};
+  r.tiles.forEach(t=>{if(t.full)return;
+    let a=round(Math.min(t.w,t.h)),b=round(Math.max(t.w,t.h));
+    const key=(t.rect?'':'~')+a+'×'+b;
+    (cg[key]=cg[key]||{n:0,type:t.rect?'ορθογώνιο':'γωνιακό'}).n++;});
+  const waste=wasteFor(o.pattern), pieces=full+cut;
+  const orderArea=area*(1+waste), boxM2=num('boxM2'), boxes=boxM2>0?Math.ceil(orderArea/boxM2):0;
+  $('kArea').textContent=area.toFixed(2);$('kFull').textContent=full;$('kCut').textContent=cut;$('kWaste').textContent=Math.round(waste*100)+'%';
+
+  const big=Math.max(o.tw,o.tl), suggest=big<=20?6:big<=40?8:big<=60?10:12;
+  let rate=trowelRate(parseFloat($('trowel').value)); if($('buttering').checked)rate*=1.6;
+  const adh=area*rate;
+  const jw=o.g,depth=num('tileT')/10,groutM2=((o.tw+o.tl)/(o.tw*o.tl))*jw*depth*1.8*10,grout=groutM2*area*1.1;
+  const primer=area*(({screed:.15,oldtile:.1,concrete:.15,gypsum:.12,absorbent:.25})[$('substrate').value]||.15);
+  let level=0; if($('uneven').checked)level=area*num('levelmm')*1.6;
+  const cpm=big<=30?12:big<=45?10:big<=60?8:6, clips=Math.ceil(area*cpm), spacers=Math.ceil(area*cpm*1.2);
+  const balcN=num('balconyN'), balcW=1.4; // τυπικό πλάτος μπαλκονόπορτας
+  const placedOpen=features.filter(f=>f.kind==='opening');
+  const openLen=placedOpen.filter(f=>f.type==='door'||f.type==='balcony').reduce((s,f)=>s+Math.max(f.w,f.h)/100,0);
+  const balcPlaced=placedOpen.filter(f=>f.type==='balcony').length;
+  // σοβατεπί: άθροισμα περιμέτρων δωματίων (ΟΧΙ μπάνια, ΟΧΙ βεράντες) − ανοίγματα
+  const bathRe=/μπάν|μπαν|λουτρ|w\.?c/i;
+  const skirtRooms=features.filter(f=>f.kind==='room'&&f.type!=='veranda'&&!bathRe.test(f.name));
+  let skirtRaw=0; skirtRooms.forEach(f=>skirtRaw+=ringPerim(ringOf(f))/100);
+  const doors=num('doorTotal'), skirt=Math.max(0,skirtRaw-doors-balcN*balcW-openLen);
+  const rows=[
+    ['Πλακάκια',orderArea.toFixed(2)+' m² ('+pieces+' τεμ.)',boxes>0?boxes+' κουτ.':'—'],
+    ['Πλακόκολλα',adh.toFixed(1)+' kg',Math.ceil(adh/25)+'×25kg'],
+    ['Αρμόστοκος',grout.toFixed(1)+' kg',Math.ceil(grout/5)+'×5kg'],
+    ['Αστάρι',primer.toFixed(1)+' L','—'],
+  ];
+  if(level>0)rows.push(['Αυτοεπιπεδούμενο',level.toFixed(0)+' kg',Math.ceil(level/25)+'×25kg']);
+  rows.push(['Σταυροί',spacers+' τεμ.','—'],['Κλιπ ισοπέδ.',clips+' τεμ.','—']);
+  const sp=skirtingPlan(o.tw,o.tl), spw=Math.round(sp.w*100)/100;
+  const skirtTiles=skirt>0?Math.ceil(skirt/(sp.run/100)):0;
+  rows.push(['Σοβατεπί (πλάτος '+spw+'cm)',skirt.toFixed(2)+' m',skirtTiles+' πλακ.']);
+  const thresholds=balcN+balcPlaced;
+  if(thresholds>0)rows.push(['Κατώφλι/μαρμαροποδιά',thresholds+' τεμ.','μπαλκονόπ.']);
+  const noTile=features.filter(f=>f.type==='tub'||f.type==='shower');
+  const verandas=features.filter(f=>f.type==='veranda');
+  $('matBody').innerHTML=rows.map(x=>`<tr><td>${x[0]}</td><td class="num">${x[1]}</td><td class="num small">${x[2]}</td></tr>`).join('');
+  const bp=num('boxPrice'), matCost=(bp>0&&boxes>0)?boxes*bp:0;
+  if(matCost){$('costLine').style.display='block';$('costLine').innerHTML='💶 Πλακίδια: <b>'+matCost.toFixed(2)+' €</b>';}else $('costLine').style.display='none';
+  // κόστος εργασίας
+  const lRate=num('laborRate'),lSkirt=num('laborSkirt'),lLump=num('laborLump');
+  let labor,ldesc;
+  if(laborMode==='lump'){labor=lLump;ldesc="κατ'αποκοπή";}
+  else{labor=area*lRate+skirt*lSkirt;ldesc=area.toFixed(1)+' m²×'+lRate+'€'+(lSkirt?(' + '+skirt.toFixed(1)+' m×'+lSkirt+'€'):'');}
+  if(labor>0){$('laborOut').style.display='block';$('laborOut').innerHTML='👷 Εργασία ('+ldesc+'): <b>'+labor.toFixed(2)+' €</b>'+(matCost?('<br>🧾 Πλακίδια + Εργασία: <b>'+(matCost+labor).toFixed(2)+' €</b>'):'');}
+  else $('laborOut').style.display='none';
+
+  const cb=Object.entries(cg).sort((a,b)=>b[1].n-a[1].n);
+  $('cutBody').innerHTML=cb.length?cb.map(([k,v])=>`<tr><td>${k.replace('~','~ ')}</td><td class="num">${v.n}</td><td class="small">${v.type}</td></tr>`).join(''):'<tr><td colspan="3" class="small">Χωρίς κοψίματα.</td></tr>';
+
+  let tip=`📍 <b>Ξεκίνημα:</b> ${o.startMode==='center'?'κεντραρισμένο — ίσα κομμένα στους απέναντι τοίχους.':'από γωνία.'} `;
+  tip+=`Σχέδιο: <b>${({straight:'ίσιο',brick50:'χτιστό ½',brick33:'χτιστό ⅓',diagonal:'διαγώνιο',herringbone:'ψαροκόκαλο'})[o.pattern]}</b>. `;
+  if(suggest!=parseFloat($('trowel').value))tip+=`<br><span class="small">🔧 Πρόταση σπάτουλας για ${big}cm: <b>${suggest}mm</b>.</span>`;
+  if(noTile.length)tip+=`<br><span class="small">🛁 ${noTile.map(f=>f.name).join(', ')}: η επιφάνεια αφαιρέθηκε (χωρίς πλακάκι από κάτω).</span>`;
+  if(verandas.length)tip+=`<br><span class="small">🌤️ Βεράντα/αυλή: εξωτερικός χώρος — εύκαμπτη κόλλα εξωτ. χρήσης (C2TE S1), αντιπαγετικό πλακάκι & κλίση απορροής ~1,5%.</span>`;
+  if(skirt>0)tip+=`<br><span class="small">🔪 Σοβατεπί: κόψε κάθε πλακάκι δαπέδου σε <b>${sp.n} λωρίδες × ${spw}cm</b> (μήκος ${Math.round(sp.len)}cm) — μηδέν φύρα (εκτός μπάνιων/βεράντας).</span>`;
+  $('startTip').innerHTML=tip;
+}
+
+/* ================= CANVAS: FLOOR ================= */
+let view={sc:1,ox:0,oy:0,pad:34};
+let locked=false, userZoom=1, userPan={x:0,y:0};
+function computeView(cv,feats){
+  let bb={x0:1e15,y0:1e15,x1:-1e15,y1:-1e15};
+  const all=feats.length?feats:[{shape:'rect',x:0,y:0,w:400,h:300}];
+  all.forEach(f=>{const q=ringBBox(ringOf(f));bb.x0=Math.min(bb.x0,q.x0);bb.y0=Math.min(bb.y0,q.y0);bb.x1=Math.max(bb.x1,q.x1);bb.y1=Math.max(bb.y1,q.y1);});
+  drawPts.forEach(p=>{bb.x0=Math.min(bb.x0,p[0]);bb.y0=Math.min(bb.y0,p[1]);bb.x1=Math.max(bb.x1,p[0]);bb.y1=Math.max(bb.y1,p[1]);});
+  const W=Math.max(50,bb.x1-bb.x0),H=Math.max(50,bb.y1-bb.y0);
+  const sc=Math.min((cv.width-view.pad*2)/W,(cv.height-view.pad*2)/H);
+  view.sc=sc;view.ox=(cv.width-W*sc)/2-bb.x0*sc;view.oy=(cv.height-H*sc)/2-bb.y0*sc;
+}
+// composed transform: base auto-fit, then user zoom/pan on top
+const TX=x=>userPan.x+userZoom*(view.ox+x*view.sc), TY=y=>userPan.y+userZoom*(view.oy+y*view.sc);
+function toCanvas(cv,cx,cy){const r=cv.getBoundingClientRect();return {x:(cx-r.left)*(cv.width/r.width),y:(cy-r.top)*(cv.height/r.height)};}
+function screenToPlan(cv,sx,sy){const c=toCanvas(cv,sx,sy);const bx=(c.x-userPan.x)/userZoom,by=(c.y-userPan.y)/userZoom;return[(bx-view.ox)/view.sc,(by-view.oy)/view.sc];}
+function zoomAround(cx,cy,factor){const nz=Math.max(0.5,Math.min(10,userZoom*factor));userPan.x=cx-((cx-userPan.x)/userZoom)*nz;userPan.y=cy-((cy-userPan.y)/userZoom)*nz;userZoom=nz;drawFloor(lastFloor);}
+function resetView(){userZoom=1;userPan={x:0,y:0};drawFloor(lastFloor);}
+// reusable pan/zoom for a canvas (used by the walls canvas; floor has its own inline handlers for editing)
+function makePanZoom(cv,st,redraw){
+  const ap=new Map();let ps=null,pin=null;
+  const tc=(x,y)=>{const r=cv.getBoundingClientRect();return{x:(x-r.left)*(cv.width/r.width),y:(y-r.top)*(cv.height/r.height)};};
+  const mid=p=>({x:(p[0].x+p[1].x)/2,y:(p[0].y+p[1].y)/2}),dist=p=>Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
+  const zoomAt=(cx,cy,f)=>{const nz=Math.max(0.5,Math.min(10,st.zoom*f));st.pan.x=cx-((cx-st.pan.x)/st.zoom)*nz;st.pan.y=cy-((cy-st.pan.y)/st.zoom)*nz;st.zoom=nz;redraw();};
+  cv.addEventListener('pointerdown',e=>{if(!st.locked)return;cv.setPointerCapture(e.pointerId);ap.set(e.pointerId,tc(e.clientX,e.clientY));const pts=[...ap.values()];if(pts.length===1){ps={cx:pts[0].x,cy:pts[0].y,ox:st.pan.x,oy:st.pan.y};pin=null;}else if(pts.length===2){pin={dist:dist(pts),zoom:st.zoom,pan:{...st.pan},mid:mid(pts)};ps=null;}});
+  cv.addEventListener('pointermove',e=>{if(!st.locked||!ap.has(e.pointerId))return;ap.set(e.pointerId,tc(e.clientX,e.clientY));const pts=[...ap.values()];if(pts.length>=2&&pin){const f=dist(pts)/pin.dist,nz=Math.max(0.5,Math.min(10,pin.zoom*f)),m=mid(pts);st.zoom=nz;st.pan.x=m.x-((pin.mid.x-pin.pan.x)/pin.zoom)*nz;st.pan.y=m.y-((pin.mid.y-pin.pan.y)/pin.zoom)*nz;redraw();}else if(pts.length===1&&ps){st.pan.x=ps.ox+(pts[0].x-ps.cx);st.pan.y=ps.oy+(pts[0].y-ps.cy);redraw();}});
+  const end=e=>{ap.delete(e.pointerId);const pts=[...ap.values()];if(pts.length===1){ps={cx:pts[0].x,cy:pts[0].y,ox:st.pan.x,oy:st.pan.y};pin=null;}else if(!pts.length){ps=null;pin=null;}};
+  cv.addEventListener('pointerup',e=>{if(st.locked)end(e);});
+  cv.addEventListener('pointercancel',e=>{if(st.locked)end(e);});
+  cv.addEventListener('wheel',e=>{if(!st.locked)return;e.preventDefault();const c=tc(e.clientX,e.clientY);zoomAt(c.x,c.y,Math.exp(-e.deltaY*0.0015));},{passive:false});
+  cv.addEventListener('dblclick',()=>{if(st.locked){st.zoom=1;st.pan={x:0,y:0};redraw();}});
+  return{zoomAt};
+}
+
+function cssv(n){return getComputedStyle(document.documentElement).getPropertyValue(n);}
+function drawFloor(state){
+  const cv=$('cv'),ctx=cv.getContext('2d');
+  computeView(cv,features);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const cFull=cssv('--full'),cCut=cssv('--cut'),cTri=cssv('--tri'),cEdge=cssv('--cutedge'),cInk=cssv('--ink'),cRoom=cssv('--room'),cCol=cssv('--col'),cLine=cssv('--line');
+  // rooms fill
+  features.filter(f=>f.kind==='room').forEach(f=>{ctx.fillStyle=cRoom;fillRing(ctx,ringOf(f));});
+  // tiles
+  if(state&&state.r){
+    state.r.tiles.forEach(t=>{
+      t.rings.forEach(r=>{
+        ctx.beginPath();r.forEach((p,i)=>{const X=TX(p[0]),Y=TY(p[1]);i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});ctx.closePath();
+        ctx.fillStyle=t.full?cFull:(t.rect?cCut:cTri);ctx.fill();
+        ctx.strokeStyle=t.full?'rgba(0,0,0,.16)':cEdge;ctx.lineWidth=t.full?0.6:1.2;ctx.stroke();
+      });
+      if(!t.full){const wv=round(t.w),hv=round(t.h);if(Math.min(t.w,t.h)*view.sc>15){
+        ctx.fillStyle=cInk;ctx.font='9px system-ui';ctx.textAlign='center';
+        ctx.fillText((t.rect?'':'~')+wv+'×'+hv,TX(t.cx),TY(t.cy)+3);}}
+    });
+  }
+  // columns
+  features.filter(f=>f.kind==='column').forEach(f=>{ctx.save();ctx.fillStyle=cCol;ctx.globalAlpha=.45;fillRing(ctx,ringOf(f));ctx.globalAlpha=1;ctx.strokeStyle=cCol;ctx.lineWidth=1.5;strokeRing(ctx,ringOf(f));ctx.restore();});
+  // openings (doors/windows/balcony) drawn as coloured bars on top
+  features.filter(f=>f.kind==='opening').forEach(f=>{
+    const col=OPENCOL[f.type]||'#2f855a';const bb=ringBBox(ringOf(f));
+    ctx.fillStyle=col;fillRing(ctx,ringOf(f));
+    ctx.fillStyle='#fff';ctx.font='bold 9px system-ui';ctx.textAlign='center';
+    const w=(bb.x1-bb.x0),h=(bb.y1-bb.y0);
+    ctx.save();ctx.translate(TX((bb.x0+bb.x1)/2),TY((bb.y0+bb.y1)/2));if(h>w)ctx.rotate(-Math.PI/2);
+    ctx.fillText(f.name+' '+Math.round(Math.max(w,h))+'cm',0,3);ctx.restore();
+    if(f.shape==='rect'){ctx.fillStyle='#fff';ctx.strokeStyle=cInk;ctx.lineWidth=1;const hx=TX(f.x+f.w),hy=TY(f.y+f.h);ctx.fillRect(hx-4,hy-4,8,8);ctx.strokeRect(hx-4,hy-4,8,8);}
+  });
+  // room/hole outlines + labels + handles
+  features.filter(f=>f.kind==='room'||f.kind==='column').forEach(f=>{
+    ctx.strokeStyle=f.kind==='room'?cInk:cCol;ctx.lineWidth=f.kind==='room'?2:1.5;strokeRing(ctx,ringOf(f));
+    const bb=ringBBox(ringOf(f));ctx.fillStyle=cInk;ctx.font='bold 11px system-ui';ctx.textAlign='center';
+    ctx.fillText(f.name,TX((bb.x0+bb.x1)/2),TY(bb.y0)+13);
+    if(f.shape!=='poly'){ctx.fillStyle='#fff';ctx.strokeStyle=cInk;ctx.lineWidth=1;const hx=TX(f.x+f.w),hy=TY(f.y+f.h);ctx.fillRect(hx-4,hy-4,8,8);ctx.strokeRect(hx-4,hy-4,8,8);}
+    ctx.fillStyle=cInk;ctx.font='9px system-ui';
+    ctx.fillText(((bb.x1-bb.x0)/100).toFixed(2)+'m',TX((bb.x0+bb.x1)/2),TY(bb.y1)-3);
+  });
+  // markers: σιφώνι (σύμβολο) / λεκάνη-νιπτήρας (κουτί)
+  features.filter(f=>f.kind==='marker').forEach(f=>{const bb=ringBBox(ringOf(f)),cx=(bb.x0+bb.x1)/2,cy=(bb.y0+bb.y1)/2,X0=TX(cx),Y0=TY(cy);
+    if(f.type==='drain'){const r=Math.max(7,(bb.x1-bb.x0)*view.sc*userZoom/2);
+      ctx.fillStyle='#2b3138';ctx.beginPath();ctx.arc(X0,Y0,r,0,7);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+      ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(X0-r,Y0);ctx.lineTo(X0+r,Y0);ctx.moveTo(X0,Y0-r);ctx.lineTo(X0,Y0+r);ctx.stroke();
+    }else{ctx.save();ctx.fillStyle='rgba(120,130,145,.5)';fillRing(ctx,ringOf(f));ctx.strokeStyle='#5d6b7a';ctx.lineWidth=1.5;strokeRing(ctx,ringOf(f));ctx.restore();
+      if(f.shape!=='poly'){ctx.fillStyle='#fff';ctx.strokeStyle=cInk;ctx.lineWidth=1;const hx=TX(f.x+f.w),hy=TY(f.y+f.h);ctx.fillRect(hx-4,hy-4,8,8);ctx.strokeRect(hx-4,hy-4,8,8);}}
+    ctx.fillStyle=cInk;ctx.font='9px system-ui';ctx.textAlign='center';ctx.fillText(f.name,X0,TY(bb.y0)-3);
+  });
+  // curve handles (κυρτός τοίχος) — σύρε για ρύθμιση
+  if(!locked)features.filter(f=>f.curves&&f.curves.length&&(f.kind==='room'||f.kind==='column')).forEach(f=>f.curves.forEach(b=>{
+    const h=bumpHandle(f,b),X0=TX(h.hx),Y0=TY(h.hy);
+    ctx.fillStyle=cssv('--accent');ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(X0,Y0,6,0,7);ctx.fill();ctx.stroke();
+  }));
+  // measure ruler
+  if(measure){const A=TX(measure.a[0]),AY=TY(measure.a[1]),B=TX(measure.b[0]),BY=TY(measure.b[1]);
+    const dist=Math.hypot(measure.b[0]-measure.a[0],measure.b[1]-measure.a[1]);
+    ctx.strokeStyle=cssv('--accent2');ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(A,AY);ctx.lineTo(B,BY);ctx.stroke();
+    [[A,AY],[B,BY]].forEach(p=>{ctx.fillStyle=cssv('--accent2');ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(p[0],p[1],5,0,7);ctx.fill();ctx.stroke();});
+    const mx=(A+B)/2,my=(AY+BY)/2,txt=(dist/100).toFixed(2)+' m  ('+Math.round(dist)+' cm)';
+    ctx.font='bold 12px system-ui';ctx.textAlign='center';const tw=ctx.measureText(txt).width;
+    ctx.fillStyle=cssv('--panel');ctx.strokeStyle=cssv('--accent2');ctx.lineWidth=1;ctx.beginPath();ctx.rect(mx-tw/2-6,my-20,tw+12,18);ctx.fill();ctx.stroke();
+    ctx.fillStyle=cssv('--ink');ctx.fillText(txt,mx,my-7);
+  }
+  // draw-in-progress polygon
+  if(mode==='draw'&&drawPts.length){
+    ctx.strokeStyle=cssv('--accent');ctx.lineWidth=2;ctx.beginPath();
+    drawPts.forEach((p,i)=>{const X=TX(p[0]),Y=TY(p[1]);i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});ctx.stroke();
+    drawPts.forEach(p=>{ctx.fillStyle=cssv('--accent');ctx.beginPath();ctx.arc(TX(p[0]),TY(p[1]),4,0,7);ctx.fill();});
+  }
+  $('scaleInfo').textContent=(state?('1:'+Math.round(100/view.sc)):'');
+}
+function fillRing(ctx,r){ctx.beginPath();r.forEach((p,i)=>{const X=TX(p[0]),Y=TY(p[1]);i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});ctx.closePath();ctx.fill();}
+function strokeRing(ctx,r){ctx.beginPath();r.forEach((p,i)=>{const X=TX(p[0]),Y=TY(p[1]);i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});ctx.closePath();ctx.stroke();}
+
+/* ---- interaction ---- */
+let drag=null, measure=null;
+const activePointers=new Map(); let panStart=null, pinchStart=null;
+function pointInRect(px,py,f){return px>=f.x&&px<=f.x+f.w&&py>=f.y&&py<=f.y+f.h;}
+function midOf(pts){return {x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2};}
+function distOf(pts){return Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);}
+$('cv').addEventListener('pointerdown',e=>{
+  const cv=$('cv');
+  if(locked){ // pan / pinch-zoom, never edit
+    cv.setPointerCapture(e.pointerId);
+    activePointers.set(e.pointerId,toCanvas(cv,e.clientX,e.clientY));
+    const pts=[...activePointers.values()];
+    if(pts.length===1){const c=pts[0];panStart={cx:c.x,cy:c.y,ox:userPan.x,oy:userPan.y};pinchStart=null;}
+    else if(pts.length===2){pinchStart={dist:distOf(pts),zoom:userZoom,pan:{...userPan},mid:midOf(pts)};panStart=null;}
+    return;
+  }
+  const [px,py]=screenToPlan(cv,e.clientX,e.clientY);
+  if(mode==='draw'){drawPts.push([px,py]);drawFloor(lastFloor);return;}
+  if(mode==='measure'){measure={a:[px,py],b:[px,py]};drag={mode:'measure'};cv.setPointerCapture(e.pointerId);drawFloor(lastFloor);return;}
+  // curve handle first
+  for(let i=features.length-1;i>=0;i--){const f=features[i];if(f.curves&&(f.kind==='room'||f.kind==='column')){for(const b of f.curves){const h=bumpHandle(f,b);if(Math.hypot(px-h.hx,py-h.hy)<14/(view.sc*userZoom)){drag={f,bump:b,mode:'curve'};cv.setPointerCapture(e.pointerId);return;}}}}
+  // hit test top-down
+  for(let i=features.length-1;i>=0;i--){const f=features[i];
+    if(f.shape==='rect'||f.shape==='ellipse'){
+      const hx=f.x+f.w,hy=f.y+f.h,tol=10/(view.sc*userZoom);
+      if(Math.abs(px-hx)<tol&&Math.abs(py-hy)<tol){drag={f,mode:'resize'};cv.setPointerCapture(e.pointerId);return;}
+      if(pointInRect(px,py,f)){drag={f,mode:'move',dx:px-f.x,dy:py-f.y};cv.setPointerCapture(e.pointerId);return;}
+    }else{
+      const bb=ringBBox(ringOf(f));if(px>=bb.x0&&px<=bb.x1&&py>=bb.y0&&py<=bb.y1){drag={f,mode:'movepoly',dx:px,dy:py};cv.setPointerCapture(e.pointerId);return;}
+    }
+  }
+});
+$('cv').addEventListener('pointermove',e=>{
+  const cv=$('cv');
+  if(locked){
+    if(!activePointers.has(e.pointerId))return;
+    activePointers.set(e.pointerId,toCanvas(cv,e.clientX,e.clientY));
+    const pts=[...activePointers.values()];
+    if(pts.length>=2&&pinchStart){ // pinch zoom + two-finger pan
+      const factor=distOf(pts)/pinchStart.dist, nz=Math.max(0.5,Math.min(10,pinchStart.zoom*factor)), mid=midOf(pts);
+      userZoom=nz;
+      userPan.x=mid.x-((pinchStart.mid.x-pinchStart.pan.x)/pinchStart.zoom)*nz;
+      userPan.y=mid.y-((pinchStart.mid.y-pinchStart.pan.y)/pinchStart.zoom)*nz;
+      drawFloor(lastFloor);
+    }else if(pts.length===1&&panStart){
+      userPan.x=panStart.ox+(pts[0].x-panStart.cx);userPan.y=panStart.oy+(pts[0].y-panStart.cy);drawFloor(lastFloor);
+    }
+    return;
+  }
+  if(!drag)return;const [px,py]=screenToPlan(cv,e.clientX,e.clientY);
+  if(drag.mode==='measure'){measure.b=[px,py];drawFloor(lastFloor);return;}
+  if(drag.mode==='move'){drag.f.x=round(px-drag.dx,1);drag.f.y=round(py-drag.dy,1);}
+  else if(drag.mode==='resize'){drag.f.w=Math.max(10,round(px-drag.f.x,1));drag.f.h=Math.max(10,round(py-drag.f.y,1));}
+  else if(drag.mode==='curve'){const h=bumpHandle(drag.f,drag.bump);let t=((px-h.A[0])*h.dx+(py-h.A[1])*h.dy)/(h.len*h.len);t=Math.max(0.06,Math.min(0.94,t));const ptx=h.A[0]+t*h.dx,pty=h.A[1]+t*h.dy;drag.bump.t=Math.round(t*1000)/1000;drag.bump.bulge=round((px-ptx)*h.nx+(py-pty)*h.ny,1);}
+  else if(drag.mode==='movepoly'){const ddx=px-drag.dx,ddy=py-drag.dy;drag.f.points=drag.f.points.map(p=>[p[0]+ddx,p[1]+ddy]);drag.dx=px;drag.dy=py;}
+  drawFloor(lastFloor);
+});
+function endPointer(e){if(activePointers.size){activePointers.delete(e.pointerId);const pts=[...activePointers.values()];if(pts.length===1){panStart={cx:pts[0].x,cy:pts[0].y,ox:userPan.x,oy:userPan.y};pinchStart=null;}else if(pts.length===0){panStart=null;pinchStart=null;}}}
+$('cv').addEventListener('pointerup',e=>{if(locked){endPointer(e);return;}if(drag&&drag.mode==='measure'){drag=null;return;}if(drag){if(drag.mode==='curve'&&drag.f.curves){drag.f.curves=drag.f.curves.filter(b=>Math.abs(b.bulge)>=3);if(!drag.f.curves.length)delete drag.f.curves;}drag=null;renderFeatList();recalcFloor();}});
+$('cv').addEventListener('pointercancel',e=>{if(locked)endPointer(e);});
+$('cv').addEventListener('wheel',e=>{if(!locked)return;e.preventDefault();const c=toCanvas($('cv'),e.clientX,e.clientY);zoomAround(c.x,c.y,Math.exp(-e.deltaY*0.0015));},{passive:false});
+$('cv').addEventListener('dblclick',e=>{if(locked){resetView();return;}if(mode==='draw'&&drawPts.length>=3)finishPoly();});
+
+function finishPoly(){
+  if(drawPts.length<3){drawPts=[];return;}
+  features.push({id:uid++,kind:$('drawCol').checked?'column':'room',shape:'poly',name:$('drawCol').checked?'Εσοχή':'Χώρος',points:drawPts.slice()});
+  drawPts=[];renderFeatList();recalcFloor();
+}
+
+/* ---- buttons ---- */
+function planBBox(){let b={x0:1e15,y0:1e15,x1:-1e15,y1:-1e15},any=false;features.forEach(f=>{const q=ringBBox(ringOf(f));b.x0=Math.min(b.x0,q.x0);b.y0=Math.min(b.y0,q.y0);b.x1=Math.max(b.x1,q.x1);b.y1=Math.max(b.y1,q.y1);any=true;});return any?b:{x0:0,y0:0,x1:0,y1:0};}
+function freeSpot(){const b=planBBox();return{x:Math.round(b.x1)+30,y:Math.round(b.y0)};}       // right of the plan
+function centerSpot(){const b=planBBox();return{x:Math.round((b.x0+b.x1)/2-25),y:Math.round((b.y0+b.y1)/2-25)};} // middle (visible)
+const addFeat=(type,shape,name,w,h)=>{const p=(FTYPES[type].k==='room')?freeSpot():centerSpot();features.push({id:uid++,type,kind:FTYPES[type].k,shape,name,x:p.x,y:p.y,w,h});renderFeatList();fitAndDraw();};
+$('addRoom').onclick=()=>addFeat('room','rect','Δωμάτιο',300,300);
+$('addCol').onclick=()=>addFeat('column','rect','Κολώνα',40,40);
+$('addTub').onclick=()=>addFeat('tub','rect','Μπανιέρα',170,70);
+if($('addVeranda'))$('addVeranda').onclick=()=>addFeat('veranda','rect','Βεράντα',300,250);
+if($('addOval'))$('addOval').onclick=()=>addFeat('room','ellipse','Οβάλ χώρος',300,200);
+if($('addDoor'))$('addDoor').onclick=()=>addFeat('door','rect','Πόρτα',80,16);
+if($('addWindow'))$('addWindow').onclick=()=>addFeat('window','rect','Παράθυρο',120,16);
+if($('addBalcony'))$('addBalcony').onclick=()=>addFeat('balcony','rect','Μπαλκονόπ.',140,16);
+if($('addDrain'))$('addDrain').onclick=()=>addFeat('drain','rect','Σιφώνι',12,12);
+if($('addWc'))$('addWc').onclick=()=>addFeat('wc','rect','Λεκάνη',40,55);
+if($('addBasin'))$('addBasin').onclick=()=>addFeat('basin','rect','Νιπτήρας',55,45);
+$('clearPlan').onclick=()=>{features=[];drawPts=[];renderFeatList();fitAndDraw();};
+function setLocked(v){locked=v;const cv=$('cv');if(cv)cv.style.cursor=locked?'grab':(mode==='draw'?'crosshair':'default');
+  const b=$('lockBtn');if(b){b.innerHTML=locked?'🔒 Κλειδωμένο':'🔓 Ξεκλείδωτο';b.style.background=locked?'var(--accent)':'';b.style.color=locked?'#fff':'';}
+  const ov=$('lockOverlayHint');if(ov)ov.style.display=locked?'block':'none';}
+if($('lockBtn'))$('lockBtn').onclick=()=>setLocked(!locked);
+if($('zoomIn'))$('zoomIn').onclick=()=>zoomAround($('cv').width/2,$('cv').height/2,1.25);
+if($('zoomOut'))$('zoomOut').onclick=()=>zoomAround($('cv').width/2,$('cv').height/2,0.8);
+if($('resetView'))$('resetView').onclick=resetView;
+$('finishPoly').onclick=finishPoly;
+$('undoPt').onclick=()=>{drawPts.pop();drawFloor(lastFloor);};
+segInit('modeSeg','m',v=>{mode=v;if((v==='draw'||v==='measure')&&locked)setLocked(false);if(v!=='measure')measure=null;$('rectBtns').style.display=v==='rect'?'flex':'none';$('openBtns').style.display=v==='rect'?'flex':'none';$('drawBtns').style.display=v==='draw'?'block':'none';$('cv').style.cursor=locked?'grab':(v==='rect'?'default':'crosshair');drawPts=[];drawFloor(lastFloor);});
+segInit('patternSeg','p',v=>{pattern=v;recalcFloor();});
+segInit('startSeg','s',v=>{startMode=v;recalcFloor();});
+segInit('hbSeg','a',v=>{hbAngle=parseInt(v);recalcFloor();});
+segInit('laborSeg','l',v=>{laborMode=v;$('laborM2Row').style.display=v==='m2'?'flex':'none';$('laborLumpRow').style.display=v==='lump'?'flex':'none';recalcFloor();});
+['tileW','tileL','tileT','grout','boxM2','boxPrice','substrate','uneven','levelmm','trowel','buttering','offX','offY','doorTotal','balconyN','laborRate','laborSkirt','laborLump'].forEach(id=>{const el=$(id);if(el){el.addEventListener('input',recalcFloor);el.addEventListener('change',recalcFloor);}});
+$('offX').addEventListener('input',()=>$('offXv').textContent=$('offX').value);
+$('offY').addEventListener('input',()=>$('offYv').textContent=$('offY').value);
+$('uneven').addEventListener('change',()=>$('levelRow').style.display=$('uneven').checked?'flex':'none');
+
+function fitAndDraw(){const cv=$('cv');const w=cv.parentElement.clientWidth-28;cv.width=Math.max(320,w);cv.height=Math.round(cv.width*0.78);recalcFloor();}
+
+/* ================= WALLS ================= */
+let walls=[], selWall=0, wPattern='straight', wVStart='bottomfull';
+let wallVS={locked:false,zoom:1,pan:{x:0,y:0}}, wT=null, wDrag=null;
+function defaultWalls(){walls=[
+  {name:'Τοίχος μπαταρίας',w:2.0,h:2.4,openings:'',pipes:'100,110; 100,45'},
+  {name:'Τοίχος ντουζιέρας',w:1.6,h:2.4,openings:'',pipes:'80,200'},
+];}
+function renderWallList(){
+  $('wallList').innerHTML=walls.map((wl,i)=>`<div class="feat" data-i="${i}" style="flex-wrap:wrap">
+    <input class="nm" style="flex:2;min-width:120px" value="${wl.name}" data-f="name">
+    <input class="n" type="number" step="0.01" value="${wl.w}" data-f="w" title="πλάτος m" style="width:70px">
+    <input class="n" type="number" step="0.01" value="${wl.h}" data-f="h" title="ύψος m" style="width:60px">
+    <input class="n" type="number" step="1" value="${wl.curve||0}" data-f="curve" title="κύρτωση/βέλος cm (0 = ίσιος τοίχος)" style="width:56px" placeholder="⌒cm">
+    <button class="btn ${i===selWall?'':'sec'} mini" data-sel="1">όψη</button>
+    <button class="btn sec mini" data-del="1">✕</button>
+    <input style="flex:1 1 100%;margin-top:4px;padding:5px;font-size:11px" placeholder="ανοίγματα x,y,π,υ; ... (cm)" value="${wl.openings}" data-f="openings">
+    <input style="flex:1 1 100%;padding:5px;font-size:11px" placeholder="αναμονές x,y; ... (cm από κάτω-αριστερά)" value="${wl.pipes}" data-f="pipes">
+  </div>`).join('');
+  $('wallList').querySelectorAll('.feat').forEach(row=>{const i=+row.dataset.i;
+    row.querySelectorAll('input').forEach(inp=>inp.oninput=()=>{const k=inp.dataset.f;walls[i][k]=(k==='name'||k==='openings'||k==='pipes')?inp.value:(parseFloat(inp.value)||0);calcWalls();});
+    row.querySelector('[data-sel]').onclick=()=>{selWall=i;calcWalls();};
+    row.querySelector('[data-del]').onclick=()=>{walls.splice(i,1);if(selWall>=walls.length)selWall=0;renderWallList();calcWalls();};
+  });
+}
+function parseList(s,n){return (s||'').split(';').map(x=>x.trim()).filter(Boolean).map(x=>x.split(',').map(Number)).filter(a=>a.length>=n);}
+// typed openings & points (format "type:x,y,w,h" / "kind:x,y"; bare = default)
+const WOPEN={window:{c:'#2b6cb0',n:'ΠΑΡΑΘΥΡΟ'},door:{c:'#2f855a',n:'ΠΟΡΤΑ'},balcony:{c:'#8a5a24',n:'ΜΠΑΛΚΟΝΟΠ.'},tub:{c:'#0d9488',n:'ΜΠΑΝΙΕΡΑ'}};
+const WPOINT={pipe:{c:'#e02424',n:'αναμονή'},socket:{c:'#d69e2e',n:'πρίζα'}};
+function parseOpenings(s){return (s||'').split(';').map(t=>t.trim()).filter(Boolean).map(t=>{let type='window',b=t;const ci=t.indexOf(':');if(ci>0){type=t.slice(0,ci).trim();b=t.slice(ci+1);}const a=b.split(',').map(Number);if(a.length<4||a.some(isNaN))return null;return{type:WOPEN[type]?type:'window',x:a[0],y:a[1],w:a[2],h:a[3]};}).filter(Boolean);}
+function serOpenings(l){return l.map(o=>o.type+':'+[o.x,o.y,o.w,o.h].join(',')).join('; ');}
+function parsePoints(s){return (s||'').split(';').map(t=>t.trim()).filter(Boolean).map(t=>{let kind='pipe',b=t;const ci=t.indexOf(':');if(ci>0){kind=t.slice(0,ci).trim();b=t.slice(ci+1);}const a=b.split(',').map(Number);if(a.length<2||a.some(isNaN))return null;return{kind:WPOINT[kind]?kind:'pipe',x:a[0],y:a[1]};}).filter(Boolean);}
+function serPoints(l){return l.map(p=>p.kind+':'+[p.x,p.y].join(',')).join('; ');}
+function arcLen(chord,sag){if(!sag||sag<=0)return chord;const R=(chord*chord/4+sag*sag)/(2*sag);return 2*R*Math.asin(Math.min(1,chord/(2*R)));}
+function wallRegion(wl){
+  const chord=wl.w*100,W=arcLen(chord,wl.curve||0),H=wl.h*100;
+  let poly=polyObj([[[0,0],[W,0],[W,H],[0,H]]]);
+  parseOpenings(wl.openings).forEach(o=>{const{x,y,w,h}=o;try{poly=PolyBool.difference(poly,polyObj([[[x,y],[x+w,y],[x+w,y+h],[x,y+h]]]));}catch(e){}});
+  return {poly,W,H};
+}
+function wallOpts(H){
+  const tw=num('wTileW'),tl=num('wTileL'),g=num('wGrout')/10;
+  return{tw,tl,g,pattern:wPattern,startMode:'center',offX:0,offY: wVStart==='bottomfull'? offsetForBottom(H,tl+g):0};
+}
+function offsetForBottom(H,py){ // make bottom edge a full-tile boundary
+  const n=Math.floor(H/py); return H-n*py - py; // shift so a joint hits bottom
+}
+function calcWalls(){
+  if(!walls.length){$('wArea').textContent='0';$('wPieces').textContent='0';$('wMat').innerHTML='';$('wCutBody').innerHTML='';drawWall(null);return;}
+  let totArea=0,totPieces=0,totFull=0,totCut=0; let selData=null; const tw=num('wTileW'),tl=num('wTileL');
+  walls.forEach((wl,idx)=>{
+    const {poly,W,H}=wallRegion(wl);
+    const o=wallOpts(H); o.tl=tl;o.tw=tw;
+    const r=tileRegion(poly,o);
+    totArea+=r.area/10000;totFull+=r.full;totCut+=r.cut;totPieces+=r.full+r.cut;
+    if(idx===selWall)selData={wl,poly,r,W,H,o};
+  });
+  drawWall(selData);
+  $('wArea').textContent=totArea.toFixed(2);$('wPieces').textContent=totPieces;
+  const g=num('wGrout')/10,depth=num('wTileT')/10;
+  const rate=tw<=20?2.8:tw<=40?4.2:5.8, adh=totArea*rate;
+  const grout=((tw+tl)/(tw*tl))*g*depth*1.8*10*totArea*1.1;
+  const orderArea=totArea*1.1;
+  $('wMat').innerHTML=[
+    ['Πλακάκια',orderArea.toFixed(2)+' m² ('+totPieces+' τεμ.)'],
+    ['Πλακόκολλα',adh.toFixed(1)+' kg ('+Math.ceil(adh/25)+'×25kg)'],
+    ['Αρμόστοκος',grout.toFixed(1)+' kg'],
+    ['Σταυροί',Math.ceil(totArea*14)+' τεμ.'],
+  ].map(x=>`<tr><td>${x[0]}</td><td class="num">${x[1]}</td></tr>`).join('');
+  if(selData){
+    const cg={};selData.r.tiles.forEach(t=>{if(t.full)return;const a=round(Math.min(t.w,t.h)),b=round(Math.max(t.w,t.h));const k=(t.rect?'':'~')+a+'×'+b;(cg[k]=cg[k]||{n:0,type:t.rect?'ορθογώνιο':'γωνιακό'}).n++;});
+    const cb=Object.entries(cg).sort((a,b)=>b[1].n-a[1].n);
+    $('wCutBody').innerHTML=cb.length?cb.map(([k,v])=>`<tr><td>${k.replace('~','~ ')}</td><td class="num">${v.n}</td><td class="small">${v.type}</td></tr>`).join(''):'<tr><td colspan=3 class=small>—</td></tr>';
+    $('wallSel').textContent='· '+selData.wl.name;
+  }
+}
+function drawWall(d){
+  const cv=$('wcv'),ctx=cv.getContext('2d');const w=cv.parentElement.clientWidth-28;cv.width=Math.max(320,w);cv.height=Math.round(cv.width*0.6);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if(!d){return;}
+  const pad=34,sc=Math.min((cv.width-pad*2)/d.W,(cv.height-pad*2)/d.H),ox=(cv.width-d.W*sc)/2;
+  const oy=(cv.height-d.H*sc)/2;
+  const Z=wallVS.zoom,PX=wallVS.pan.x,PY=wallVS.pan.y;
+  const X=x=>PX+Z*(ox+x*sc), Y=y=>PY+Z*(oy+(d.H-y)*sc); // y up, with user zoom/pan
+  wT={ox,oy,sc,H:d.H,W:d.W};
+  const cFull=cssv('--full'),cCut=cssv('--cut'),cTri=cssv('--tri'),cEdge=cssv('--cutedge'),cInk=cssv('--ink');
+  d.r.tiles.forEach(t=>{
+    t.rings.forEach(r=>{ctx.beginPath();r.forEach((p,i)=>{const xx=X(p[0]),yy=Y(p[1]);i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);});ctx.closePath();
+      ctx.fillStyle=t.full?cFull:(t.rect?cCut:cTri);ctx.fill();ctx.strokeStyle=t.full?'rgba(0,0,0,.16)':cEdge;ctx.lineWidth=t.full?0.6:1.2;ctx.stroke();});
+    if(!t.full&&Math.min(t.w,t.h)*sc>15){ctx.fillStyle=cInk;ctx.font='9px system-ui';ctx.textAlign='center';ctx.fillText((t.rect?'':'~')+round(t.w)+'×'+round(t.h),X(t.cx),Y(t.cy)+3);}
+  });
+  ctx.strokeStyle=cInk;ctx.lineWidth=2;ctx.strokeRect(X(0),Y(d.H),d.W*sc*Z,d.H*sc*Z);
+  // openings χρωματιστά ανά τύπο — σύρσιμο όταν ξεκλείδωτο
+  parseOpenings(d.wl.openings).forEach(o=>{const{x,y,w,h}=o,meta=WOPEN[o.type]||WOPEN.window,col=meta.c;
+    const sx=X(x),sy=Y(y+h),sw=w*sc*Z,sh=h*sc*Z;
+    ctx.save();ctx.globalAlpha=.25;ctx.fillStyle=col;ctx.fillRect(sx,sy,sw,sh);ctx.globalAlpha=1;
+    ctx.strokeStyle=col;ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.strokeRect(sx,sy,sw,sh);ctx.restore();
+    if(Math.min(sw,sh)>24){ctx.fillStyle=col;ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.fillText(meta.n,X(x+w/2),Y(y+h/2)-2);
+      ctx.fillStyle=cInk;ctx.font='9px system-ui';ctx.fillText(Math.round(w)+'×'+Math.round(h)+'cm',X(x+w/2),Y(y+h/2)+10);}
+    if(!wallVS.locked){const hx=X(x+w),hy=Y(y);ctx.fillStyle=col;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.fillRect(hx-4,hy-4,8,8);ctx.strokeRect(hx-4,hy-4,8,8);}
+  });
+  // σημεία: αναμονές (κόκκινος κύκλος) + πρίζες (πορτοκαλί τετράγωνο με 2 οπές)
+  parsePoints(d.wl.pipes).forEach(p=>{const col=(WPOINT[p.kind]||WPOINT.pipe).c,X0=X(p.x),Y0=Y(p.y);
+    if(p.kind==='socket'){ctx.fillStyle=col;ctx.fillRect(X0-8,Y0-8,16,16);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(X0-8,Y0-8,16,16);
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(X0-3,Y0,1.6,0,7);ctx.fill();ctx.beginPath();ctx.arc(X0+3,Y0,1.6,0,7);ctx.fill();}
+    else{ctx.fillStyle=col;ctx.beginPath();ctx.arc(X0,Y0,7,0,7);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();}
+  });
+  ctx.fillStyle=cInk;ctx.font='bold 11px system-ui';ctx.textAlign='center';
+  if(d.wl.curve>0){ctx.fillText('ανάπτυγμα '+(d.W/100).toFixed(2)+' m',X(d.W/2),Y(0)+16);ctx.font='9px system-ui';ctx.fillText('(καμπύλος τοίχος — χορδή '+d.wl.w.toFixed(2)+' m, βέλος '+d.wl.curve+'cm)',X(d.W/2),Y(0)+28);}
+  else ctx.fillText(d.wl.w.toFixed(2)+'m',X(d.W/2),Y(0)+16);
+}
+$('addWall').onclick=()=>{walls.push({name:'Τοίχος',w:2,h:2.4,openings:'',pipes:''});renderWallList();calcWalls();};
+// preset openings (cm, από κάτω-αριστερά): x,y,πλάτος,ύψος
+const OPEN_PRESETS={window:'window:50,110,80,100',door:'door:10,0,80,210',balcony:'balcony:10,0,140,220',tub:'tub:0,0,170,60'};
+const POINT_PRESETS={pipe:'pipe:100,110',socket:'socket:30,120'};
+function ensureWall(){if(!walls.length){walls.push({name:'Τοίχος',w:2,h:2.4,openings:'',pipes:''});selWall=0;}}
+function appendTo(field,pre){ensureWall();const wl=walls[selWall];wl[field]=(wl[field]&&wl[field].trim())?wl[field].replace(/;?\s*$/,'')+'; '+pre:pre;renderWallList();calcWalls();}
+document.querySelectorAll('[data-open]').forEach(btn=>btn.onclick=()=>appendTo('openings',OPEN_PRESETS[btn.dataset.open]));
+document.querySelectorAll('[data-point]').forEach(btn=>btn.onclick=()=>appendTo('pipes',POINT_PRESETS[btn.dataset.point]));
+segInit('wPatternSeg','p',v=>{wPattern=v;calcWalls();});
+segInit('wStartSeg','v',v=>{wVStart=v;calcWalls();});
+['wTileW','wTileL','wGrout','wTileT'].forEach(id=>$(id).addEventListener('input',calcWalls));
+const wpz=makePanZoom($('wcv'),wallVS,calcWalls);
+function setWLocked(v){wallVS.locked=v;const cv=$('wcv');if(cv)cv.style.cursor=v?'grab':'default';const b=$('wLockBtn');if(b){b.innerHTML=v?'🔒 Κλειδωμένο':'🔓 Ξεκλείδωτο';b.style.background=v?'var(--accent)':'';b.style.color=v?'#fff':'';}const ov=$('wLockHint');if(ov)ov.style.display=v?'block':'none';}
+if($('wLockBtn'))$('wLockBtn').onclick=()=>setWLocked(!wallVS.locked);
+if($('wZoomIn'))$('wZoomIn').onclick=()=>wpz.zoomAt($('wcv').width/2,$('wcv').height/2,1.25);
+if($('wZoomOut'))$('wZoomOut').onclick=()=>wpz.zoomAt($('wcv').width/2,$('wcv').height/2,0.8);
+if($('wResetView'))$('wResetView').onclick=()=>{wallVS.zoom=1;wallVS.pan={x:0,y:0};calcWalls();};
+// drag openings on the wall (only when unlocked)
+function screenToWall(clientX,clientY){const cv=$('wcv'),c=toCanvas(cv,clientX,clientY),Z=wallVS.zoom;
+  const x=(((c.x-wallVS.pan.x)/Z)-wT.ox)/wT.sc, y=wT.H-((((c.y-wallVS.pan.y)/Z)-wT.oy)/wT.sc);return[x,y];}
+$('wcv').addEventListener('pointerdown',e=>{
+  if(wallVS.locked||!wT||!walls[selWall])return;
+  const cv=$('wcv'),[px,py]=screenToWall(e.clientX,e.clientY),tol=9/(wT.sc*wallVS.zoom),ptol=16/(wT.sc*wallVS.zoom);
+  const pts=parsePoints(walls[selWall].pipes); // points on top
+  for(let i=pts.length-1;i>=0;i--){if(Math.hypot(px-pts[i].x,py-pts[i].y)<ptol){wDrag={t:'point',i};cv.setPointerCapture(e.pointerId);return;}}
+  const list=parseOpenings(walls[selWall].openings);
+  for(let i=list.length-1;i>=0;i--){const o=list[i];
+    if(Math.abs(px-(o.x+o.w))<tol&&Math.abs(py-o.y)<tol){wDrag={t:'open',i,mode:'resize'};cv.setPointerCapture(e.pointerId);return;}
+    if(px>=o.x&&px<=o.x+o.w&&py>=o.y&&py<=o.y+o.h){wDrag={t:'open',i,mode:'move',dx:px-o.x,dy:py-o.y};cv.setPointerCapture(e.pointerId);return;}
+  }
+});
+$('wcv').addEventListener('pointermove',e=>{
+  if(wallVS.locked||!wDrag)return;
+  const [px,py]=screenToWall(e.clientX,e.clientY),wl=walls[selWall],W=wl.w*100,H=wl.h*100;
+  if(wDrag.t==='point'){const pts=parsePoints(wl.pipes),p=pts[wDrag.i];if(!p)return;
+    p.x=Math.max(0,Math.min(W,round(px,1)));p.y=Math.max(0,Math.min(H,round(py,1)));
+    wl.pipes=serPoints(pts);syncInput('pipes');
+  }else{const list=parseOpenings(wl.openings),o=list[wDrag.i];if(!o)return;
+    if(wDrag.mode==='move'){o.x=Math.max(0,Math.min(W-o.w,round(px-wDrag.dx,1)));o.y=Math.max(0,Math.min(H-o.h,round(py-wDrag.dy,1)));}
+    else{o.w=Math.max(5,Math.min(W-o.x,round(px-o.x,1)));o.h=Math.max(5,Math.min(H-o.y,round(py-o.y,1)));}
+    wl.openings=serOpenings(list);syncInput('openings');
+  }
+  calcWalls();
+});
+function syncInput(field){const inp=document.querySelector('#wallList .feat[data-i="'+selWall+'"] input[data-f="'+field+'"]');if(inp)inp.value=walls[selWall][field];}
+$('wcv').addEventListener('pointerup',()=>{if(!wallVS.locked&&wDrag){wDrag=null;renderWallList();calcWalls();}});
+
+/* ================= 3D ISOMETRIC ROOM ================= */
+let isoVS={locked:true,zoom:1,pan:{x:0,y:0}}, isoRot=0;
+function isoRooms(){return features.filter(f=>f.kind==='room'&&f.shape!=='poly');}
+function isoRoomFeature(){const list=isoRooms();if(!list.length)return null;const sel=$('isoRoom')?$('isoRoom').value:'';return list.find(f=>String(f.id)===sel)||list.find(f=>/μπάν|μπαν|λουτρ|wc/i.test(f.name))||list[0];}
+function populateIsoRooms(){const s=$('isoRoom');if(!s)return;const cur=s.value;const list=isoRooms();s.innerHTML='<option value="__all__">🏠 Όλο το σπίτι</option>'+list.map(f=>`<option value="${f.id}">${f.name} (${(f.w/100).toFixed(2)}×${(f.h/100).toFixed(2)})</option>`).join('');if(cur&&(cur==='__all__'||list.some(f=>String(f.id)===cur)))s.value=cur;else{const b=list.find(f=>/μπάν|μπαν|λουτρ|wc/i.test(f.name));if(b)s.value=b.id;}}
+function rotDims(a,b,r){return (r%2===0)?{Wx:a,Wy:b}:{Wx:b,Wy:a};}
+function rotPt(x,y,a,b,r){r=((r%4)+4)%4;if(r===0)return[x,y];if(r===1)return[y,a-x];if(r===2)return[a-x,b-y];return[b-y,x];}
+function rotRect(lx,ly,fw,fh,a,b,r){const cs=[[lx,ly],[lx+fw,ly],[lx+fw,ly+fh],[lx,ly+fh]].map(c=>rotPt(c[0],c[1],a,b,r));const xs=cs.map(c=>c[0]),ys=cs.map(c=>c[1]);return{x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)};}
+function drawIsoAll(cv,ctx){
+  const rooms=isoRooms();if(!rooms.length){ctx.fillStyle=cssv('--muted');ctx.font='14px system-ui';ctx.textAlign='center';ctx.fillText('Πρόσθεσε δωμάτια στην κάτοψη.',cv.width/2,cv.height/2);return;}
+  const fMinX=Math.min(...rooms.map(r=>r.x)),fMinY=Math.min(...rooms.map(r=>r.y)),fW=Math.max(...rooms.map(r=>r.x+r.w))-fMinX,fH=Math.max(...rooms.map(r=>r.y+r.h))-fMinY;
+  const {Wx,Wy}=rotDims(fW,fH,isoRot),wallH=60;
+  const P=(x,y,z)=>[(x-y)*0.866,(x+y)*0.5-z];
+  const cc=[[0,0,0],[Wx,0,0],[Wx,Wy,0],[0,Wy,0],[0,0,wallH],[Wx,0,wallH],[Wx,Wy,wallH],[0,Wy,wallH]].map(c=>P(...c));
+  const xsC=cc.map(p=>p[0]),ysC=cc.map(p=>p[1]),minx=Math.min(...xsC),maxx=Math.max(...xsC),miny=Math.min(...ysC),maxy=Math.max(...ysC);
+  const pad=32,s=Math.min((cv.width-2*pad)/(maxx-minx),(cv.height-2*pad)/(maxy-miny))*isoVS.zoom;
+  const O={x:isoVS.pan.x+cv.width/2-((minx+maxx)/2)*s,y:isoVS.pan.y+cv.height/2-((miny+maxy)/2)*s};
+  const T=(x,y,z)=>{const p=P(x,y,z);return[O.x+p[0]*s,O.y+p[1]*s];};
+  const quad=(pts,fill,stroke,lw)=>{ctx.beginPath();pts.forEach((p,i)=>{const q=T(p[0],p[1],p[2]);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();}};
+  const seg=(a,b,col)=>{const p=T(a[0],a[1],a[2]),q=T(b[0],b[1],b[2]);ctx.strokeStyle=col;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1]);ctx.stroke();};
+  const fpx=num('tileW')+num('grout')/10||60,fpy=num('tileL')+num('grout')/10||60;
+  const wl=cssv('--ink');
+  const withLocal=rooms.map(r=>({r,rr:rotRect(r.x-fMinX,r.y-fMinY,r.w,r.h,fW,fH,isoRot)})).sort((a,b)=>(a.rr.x+a.rr.y)-(b.rr.x+b.rr.y));
+  withLocal.forEach(({r,rr})=>{const x0=rr.x,y0=rr.y,x1=rr.x+rr.w,y1=rr.y+rr.h;
+    quad([[x0,y0,0],[x0,y1,0],[x0,y1,wallH],[x0,y0,wallH]],'#ccd7e3','#8ea0b2',1);
+    quad([[x0,y0,0],[x1,y0,0],[x1,y0,wallH],[x0,y0,wallH]],'#dde6ef','#8ea0b2',1);
+    quad([[x0,y0,0],[x1,y0,0],[x1,y1,0],[x0,y1,0]],'#eef2f6','#7d8ea0',1.5);
+    for(let x=x0+fpx;x<x1-1;x+=fpx)if((x1-x0)/fpx<60)seg([x,y0,0],[x,y1,0],'#cdd6df');
+    for(let y=y0+fpy;y<y1-1;y+=fpy)if((y1-y0)/fpy<60)seg([x0,y,0],[x1,y,0],'#cdd6df');
+    const c=T((x0+x1)/2,(y0+y1)/2,0);ctx.fillStyle=wl;ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.fillText(r.name,c[0],c[1]+3);
+  });
+  // fixtures + drains (global) inside any room
+  const FH={tub:55,shower:12,wc:40,basin:85},FC={tub:['#14b8a6','#0d9488','#0b8378'],shower:['#5eead4','#2dd4bf','#14b8a6'],wc:['#eef2f6','#d7dee6','#c3ccd6'],basin:['#eef2f6','#d7dee6','#c3ccd6']};
+  const inAny=f=>rooms.some(r=>{const b=ringBBox(ringOf(f));return b.x0>=r.x-1&&b.x1<=r.x+r.w+1&&b.y0>=r.y-1&&b.y1<=r.y+r.h+1;});
+  features.filter(f=>FH[f.type]!==undefined&&inAny(f)).map(f=>({f,rr:rotRect(f.x-fMinX,f.y-fMinY,f.w,f.h,fW,fH,isoRot)})).sort((a,b)=>(a.rr.x+a.rr.y)-(b.rr.x+b.rr.y)).forEach(({f,rr})=>{
+    const fh=FH[f.type],c=FC[f.type]||FC.tub,x0=rr.x,y0=rr.y,x1=rr.x+rr.w,y1=rr.y+rr.h,edge='#0f766e';
+    quad([[x0,y1,0],[x1,y1,0],[x1,y1,fh],[x0,y1,fh]],c[1],edge,1);quad([[x1,y0,0],[x1,y1,0],[x1,y1,fh],[x1,y0,fh]],c[2],edge,1);quad([[x0,y0,fh],[x1,y0,fh],[x1,y1,fh],[x0,y1,fh]],c[0],edge,1);
+  });
+  features.filter(f=>f.type==='drain'&&inAny(f)).forEach(f=>{const l=rotPt(f.x-fMinX+f.w/2,f.y-fMinY+f.h/2,fW,fH,isoRot),q=T(l[0],l[1],0);ctx.fillStyle='#2b3138';ctx.beginPath();ctx.arc(q[0],q[1],5,0,7);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();});
+  ctx.fillStyle=wl;ctx.font='bold 11px system-ui';ctx.textAlign='center';const mB=T(Wx/2,Wy,0);ctx.fillText('Συνολικά '+(fW/100).toFixed(2)+'×'+(fH/100).toFixed(2)+' m',mB[0],mB[1]+16);
+}
+function drawIso(){
+  const cv=$('icv');if(!cv)return;const ctx=cv.getContext('2d');
+  const w=cv.parentElement.clientWidth-28;cv.width=Math.max(320,w);cv.height=Math.round(cv.width*0.72);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  populateIsoRooms();
+  if($('isoRoom')&&$('isoRoom').value==='__all__')return drawIsoAll(cv,ctx);
+  const room=isoRoomFeature();
+  if(!room){ctx.fillStyle=cssv('--muted');ctx.font='14px system-ui';ctx.textAlign='center';ctx.fillText('Πρόσθεσε ένα δωμάτιο στην κάτοψη.',cv.width/2,cv.height/2);return;}
+  const Wx0=room.w,Wy0=room.h,{Wx,Wy}=rotDims(Wx0,Wy0,isoRot),H=num('isoH')*100||240;
+  const P=(x,y,z)=>[(x-y)*0.866,(x+y)*0.5-z];
+  const corners=[[0,0,0],[Wx,0,0],[Wx,Wy,0],[0,Wy,0],[0,0,H],[Wx,0,H],[Wx,Wy,H],[0,Wy,H]].map(c=>P(...c));
+  const xs=corners.map(p=>p[0]),ys=corners.map(p=>p[1]),minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+  const pad=32,sBase=Math.min((cv.width-2*pad)/(maxx-minx),(cv.height-2*pad)/(maxy-miny)),s=sBase*isoVS.zoom;
+  const O={x:isoVS.pan.x+cv.width/2-((minx+maxx)/2)*s,y:isoVS.pan.y+cv.height/2-((miny+maxy)/2)*s};
+  const T=(x,y,z)=>{const p=P(x,y,z);return[O.x+p[0]*s,O.y+p[1]*s];};
+  const quad=(pts,fill,stroke,lw)=>{ctx.beginPath();pts.forEach((p,i)=>{const q=T(p[0],p[1],p[2]);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1.5;ctx.stroke();}};
+  const seg=(a,b,col,lw)=>{const p=T(a[0],a[1],a[2]),q=T(b[0],b[1],b[2]);ctx.strokeStyle=col;ctx.lineWidth=lw||1;ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1]);ctx.stroke();};
+  const gcol='#aebccb', wLeft='#ccd7e3', wRight='#dde6ef', flr='#eef2f6';
+  // LEFT wall x=0 (spans y,z)
+  quad([[0,0,0],[0,Wy,0],[0,Wy,H],[0,0,H]],wLeft,'#7d8ea0',2);
+  const wpx=num('wTileW')+num('wGrout')/10||30,wpy=num('wTileL')+num('wGrout')/10||30;
+  for(let y=wpy;y<Wy;y+=wpy)if(Wy/wpy<80)seg([0,y,0],[0,y,H],gcol);
+  for(let z=wpy;z<H;z+=wpy)if(H/wpy<80)seg([0,0,z],[0,Wy,z],gcol);
+  // RIGHT wall y=0 (spans x,z)
+  quad([[0,0,0],[Wx,0,0],[Wx,0,H],[0,0,H]],wRight,'#7d8ea0',2);
+  for(let x=wpx;x<Wx;x+=wpx)if(Wx/wpx<80)seg([x,0,0],[x,0,H],gcol);
+  for(let z=wpy;z<H;z+=wpy)if(H/wpy<80)seg([0,0,z],[Wx,0,z],gcol);
+  // FLOOR z=0
+  quad([[0,0,0],[Wx,0,0],[Wx,Wy,0],[0,Wy,0]],flr,'#7d8ea0',2);
+  const fpx=num('tileW')+num('grout')/10||60,fpy=num('tileL')+num('grout')/10||60;
+  for(let x=fpx;x<Wx;x+=fpx)if(Wx/fpx<80)seg([x,0,0],[x,Wy,0],'#c3ccd6');
+  for(let y=fpy;y<Wy;y+=fpy)if(Wy/fpy<80)seg([0,y,0],[Wx,y,0],'#c3ccd6');
+  // openings: wall1->right(y=0), wall2->left(x=0)
+  const drawOpen=(list,plane)=>{list.forEach(o=>{const meta=WOPEN[o.type]||WOPEN.window,c=meta.c;let pts;
+    if(plane==='right'){const x0=Math.max(0,Math.min(Wx-1,o.x));pts=[[x0,0,o.y],[x0+o.w,0,o.y],[x0+o.w,0,o.y+o.h],[x0,0,o.y+o.h]];}
+    else{const y0=Math.max(0,Math.min(Wy-1,o.x));pts=[[0,y0,o.y],[0,y0+o.w,o.y],[0,y0+o.w,o.y+o.h],[0,y0,o.y+o.h]];}
+    ctx.save();ctx.globalAlpha=.85;quad(pts,c,'#ffffff',1.5);ctx.restore();});};
+  if(walls[0])drawOpen(parseOpenings(walls[0].openings),'right');
+  if(walls[1])drawOpen(parseOpenings(walls[1].openings),'left');
+  // points on walls (αναμονές/πρίζες)
+  const drawPts3=(list,plane)=>{list.forEach(p=>{const col=(WPOINT[p.kind]||WPOINT.pipe).c;const q=plane==='right'?T(Math.min(Wx,p.x),0,p.y):T(0,Math.min(Wy,p.x),p.y);ctx.fillStyle=col;ctx.strokeStyle='#fff';ctx.lineWidth=1.5;if(p.kind==='socket'){ctx.fillRect(q[0]-6,q[1]-6,12,12);ctx.strokeRect(q[0]-6,q[1]-6,12,12);}else{ctx.beginPath();ctx.arc(q[0],q[1],5,0,7);ctx.fill();ctx.stroke();}});};
+  if(walls[0])drawPts3(parsePoints(walls[0].pipes),'right');
+  if(walls[1])drawPts3(parsePoints(walls[1].pipes),'left');
+  // fixtures (μπανιέρα/ντουζιέρα) + drains from floor, inside room
+  const inRoom=f=>{const b=ringBBox(ringOf(f));return b.x0>=room.x-1&&b.x1<=room.x+room.w+1&&b.y0>=room.y-1&&b.y1<=room.y+room.h+1;};
+  const FH={tub:55,shower:12,wc:40,basin:85},FC={tub:['#14b8a6','#0d9488','#0b8378'],shower:['#5eead4','#2dd4bf','#14b8a6'],wc:['#eef2f6','#d7dee6','#c3ccd6'],basin:['#eef2f6','#d7dee6','#c3ccd6']};
+  features.filter(f=>FH[f.type]!==undefined&&inRoom(f)).sort((a,b)=>(a.y+a.h)-(b.y+b.h)).forEach(f=>{
+    const r=rotRect(f.x-room.x,f.y-room.y,f.w,f.h,Wx0,Wy0,isoRot),fh=FH[f.type],c=FC[f.type]||FC.tub,x0=r.x,y0=r.y,x1=r.x+r.w,y1=r.y+r.h,edge='#0f766e';
+    quad([[x0,y1,0],[x1,y1,0],[x1,y1,fh],[x0,y1,fh]],c[1],edge,1); // front y=y1
+    quad([[x1,y0,0],[x1,y1,0],[x1,y1,fh],[x1,y0,fh]],c[2],edge,1); // side x=x1
+    quad([[x0,y0,fh],[x1,y0,fh],[x1,y1,fh],[x0,y1,fh]],c[0],edge,1); // top
+    const ct=T((x0+x1)/2,(y0+y1)/2,fh);ctx.fillStyle=cssv('--ink');ctx.font='9px system-ui';ctx.textAlign='center';ctx.fillText(f.name,ct[0],ct[1]+3);
+  });
+  features.filter(f=>f.type==='drain'&&inRoom(f)).forEach(f=>{const p=rotPt(f.x-room.x+f.w/2,f.y-room.y+f.h/2,Wx0,Wy0,isoRot),q=T(p[0],p[1],0);
+    ctx.fillStyle='#2b3138';ctx.beginPath();ctx.arc(q[0],q[1],6,0,7);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();ctx.beginPath();ctx.moveTo(q[0]-6,q[1]);ctx.lineTo(q[0]+6,q[1]);ctx.moveTo(q[0],q[1]-6);ctx.lineTo(q[0],q[1]+6);ctx.stroke();});
+  // dims
+  ctx.fillStyle=cssv('--ink');ctx.font='bold 11px system-ui';ctx.textAlign='center';
+  const mR=T(Wx/2,0,0);ctx.fillText((Wx/100).toFixed(2)+'m',mR[0],mR[1]+16);
+  const mL=T(0,Wy/2,0);ctx.fillText((Wy/100).toFixed(2)+'m',mL[0]-8,mL[1]+16);
+}
+// iso wiring (after isoVS & drawIso are defined)
+makePanZoom($('icv'),isoVS,drawIso);
+if($('iZoomIn'))$('iZoomIn').onclick=()=>{isoVS.zoom=Math.min(10,isoVS.zoom*1.25);drawIso();};
+if($('iZoomOut'))$('iZoomOut').onclick=()=>{isoVS.zoom=Math.max(0.4,isoVS.zoom*0.8);drawIso();};
+if($('iResetView'))$('iResetView').onclick=()=>{isoVS.zoom=1;isoVS.pan={x:0,y:0};drawIso();};
+if($('isoRoom'))$('isoRoom').onchange=drawIso;
+if($('isoH'))$('isoH').addEventListener('input',drawIso);
+segInit('isoRot','r',v=>{isoRot=parseInt(v);drawIso();});
+
+/* ================= SCREED (τσιμεντοκονία) ================= */
+let screedRooms=[], screedType='trad';
+// 9 σημεία μέτρησης: 4 γωνίες + μέση κάθε τοίχου (4) + κέντρο
+const PT_LABELS=['γωνία ↖','τοίχος πάνω','γωνία ↗','τοίχος δεξιά','γωνία ↘','τοίχος κάτω','γωνία ↙','τοίχος αριστ.','κέντρο'];
+// σύντομες ετικέτες ανά index & διάταξη 3×3 σαν κάτοψη (γραμμή-γραμμή)
+const PT_SHORT=['↖ γωνία','πάνω','↗ γωνία','δεξιά','↘ γωνία','κάτω','↙ γωνία','αριστερά','ΚΕΝΤΡΟ'];
+const PT_GRID=[0,1,2, 7,8,3, 6,5,4];
+function defaultScreed(){screedRooms=[
+  {kind:'room',name:'Σαλόνι',w:4.5,l:4.0,target:6,pts:[3,3,4,3,2,4,2,3,5]},
+  {kind:'room',name:'Κουζίνα',w:2.5,l:2.8,target:5,pts:[2,2,2,3,3,3,2,2,3]},
+  {kind:'ramp',name:'Ράμπα αυλής',w:1.2,l:3.0,h1:2,h2:9},
+];}
+let scVizMode='map';
+// thickness (cm) at normalized (u=across width 0..1, v=along length 0..1)
+function screedThAt(it,u,v){if(it.kind==='ramp')return Math.max(0,it.h1+(it.h2-it.h1)*v);
+  if(it.kind==='wall')return Math.max(0,it.t);
+  const g=(r,c)=>Math.max(0,it.target-it.pts[PT_GRID[r*3+c]]);
+  const gx=u*2,gy=v*2,c0=Math.min(Math.floor(gx),1),r0=Math.min(Math.floor(gy),1),fx=gx-c0,fy=gy-r0;
+  const top=g(r0,c0)+(g(r0,c0+1)-g(r0,c0))*fx,bot=g(r0+1,c0)+(g(r0+1,c0+1)-g(r0+1,c0))*fx;return top+(bot-top)*fy;}
+function screedStats(it){if(it.kind==='ramp'){const a=Math.min(it.h1,it.h2),b=Math.max(it.h1,it.h2);return{area:it.w*it.l,avg:(it.h1+it.h2)/2,min:a,max:b,neg:false};}
+  if(it.kind==='wall'){return{area:it.w*it.l,avg:it.t||0,min:it.t||0,max:it.t||0,neg:false,concrete:true};}
+  const th=it.pts.map(e=>Math.max(0,it.target-e));return{area:it.w*it.l,avg:th.reduce((a,b)=>a+b,0)/th.length,min:Math.min(...th),max:Math.max(...th),neg:it.pts.some(e=>e>it.target)};}
+function thColor(t,mn,mx){const r=(t-mn)/((mx-mn)||1);const R=Math.round(46+r*(200-46)),G=Math.round(160+r*(60-160)),B=Math.round(67+r*(55-67));return`rgb(${R},${G},${B})`;}
+function roomRow(r,i){return `<div class="feat" data-i="${i}" style="flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
+    <span class="tag r">Δ</span><input class="nm" style="flex:2;min-width:90px" value="${r.name}" data-f="name">
+    <input class="n" type="number" step="0.01" value="${r.w}" data-f="w" title="πλάτος m" style="width:58px">
+    <input class="n" type="number" step="0.01" value="${r.l}" data-f="l" title="μήκος m" style="width:58px">
+    <input class="n" type="number" step="0.5" value="${r.target}" data-f="target" title="τελικό ύψος cm" style="width:58px">
+    <button class="btn sec mini" data-del="1">✕</button>
+    <div style="flex:1 1 100%;margin-top:6px"><div class="small" style="margin-bottom:4px">Υπάρχον ύψος (cm) — διάταξη σαν την κάτοψη:</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;max-width:300px">
+        ${PT_GRID.map(idx=>`<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font-size:9px;color:var(--muted);white-space:nowrap">${PT_SHORT[idx]}</span><input class="n" type="number" step="0.5" value="${r.pts[idx]}" data-pt="${idx}" title="${PT_LABELS[idx]}" style="width:100%;padding:6px;text-align:center"></div>`).join('')}
+      </div><div class="small" data-out="1" style="margin-top:5px"></div></div>
+  </div>`;}
+function rampRow(r,i){return `<div class="feat" data-i="${i}" style="flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
+    <span class="tag c" style="background:rgba(183,121,31,.18);color:var(--warn)">◺</span><input class="nm" style="flex:2;min-width:90px" value="${r.name}" data-f="name">
+    <button class="btn sec mini" data-del="1">✕</button>
+    <div style="flex:1 1 100%;display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      <div><label class="small">Πλάτος m</label><input class="n" type="number" step="0.01" value="${r.w}" data-f="w" style="width:66px"></div>
+      <div><label class="small">Μήκος m</label><input class="n" type="number" step="0.01" value="${r.l}" data-f="l" style="width:66px"></div>
+      <div><label class="small">Πάχος αρχή cm</label><input class="n" type="number" step="0.5" value="${r.h1}" data-f="h1" style="width:66px"></div>
+      <div><label class="small">Πάχος τέλος cm</label><input class="n" type="number" step="0.5" value="${r.h2}" data-f="h2" style="width:66px"></div>
+      <span class="small" data-out="1" style="align-self:flex-end"></span>
+    </div>
+  </div>`;}
+function wallRowScreed(r,i){return `<div class="feat" data-i="${i}" style="flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
+    <span class="tag c" style="background:rgba(90,100,110,.2);color:#556">▮</span><input class="nm" style="flex:2;min-width:90px" value="${r.name}" data-f="name">
+    <button class="btn sec mini" data-del="1">✕</button>
+    <div style="flex:1 1 100%;display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      <div><label class="small">Μήκος m</label><input class="n" type="number" step="0.01" value="${r.w}" data-f="w" style="width:66px"></div>
+      <div><label class="small">Ύψος m</label><input class="n" type="number" step="0.01" value="${r.l}" data-f="l" style="width:66px"></div>
+      <div><label class="small">Πάχος cm</label><input class="n" type="number" step="0.5" value="${r.t}" data-f="t" style="width:66px"></div>
+      <span class="small" data-out="1" style="align-self:flex-end"></span>
+    </div>
+  </div>`;}
+function renderScreed(){
+  const c=$('screedList');
+  screedRooms.forEach(r=>{if(!r.kind)r.kind='room';if(r.kind==='room'){if(!Array.isArray(r.pts))r.pts=[];while(r.pts.length<9)r.pts.push(r.pts.length?r.pts[r.pts.length-1]:0);if(r.pts.length>9)r.pts=r.pts.slice(0,9);}});
+  c.innerHTML=screedRooms.map((r,i)=>r.kind==='ramp'?rampRow(r,i):r.kind==='wall'?wallRowScreed(r,i):roomRow(r,i)).join('');
+  c.querySelectorAll('.feat').forEach(row=>{const i=+row.dataset.i,r=screedRooms[i];
+    row.querySelectorAll('input[data-f]').forEach(inp=>inp.oninput=()=>{const k=inp.dataset.f;r[k]=k==='name'?inp.value:(parseFloat(inp.value)||0);calcScreed();});
+    row.querySelectorAll('input[data-pt]').forEach(inp=>inp.oninput=()=>{r.pts[+inp.dataset.pt]=parseFloat(inp.value)||0;calcScreed();});
+    row.querySelector('[data-del]').onclick=()=>{screedRooms.splice(i,1);renderScreed();calcScreed();};
+  });
+  calcScreed();
+}
+$('addScreed').onclick=()=>{screedRooms.push({kind:'room',name:'Δωμάτιο',w:3,l:3,target:5,pts:[3,3,3,3,3,3,3,3,3]});renderScreed();};
+if($('addRamp'))$('addRamp').onclick=()=>{screedRooms.push({kind:'ramp',name:'Ράμπα αυλής',w:1,l:3,h1:2,h2:8});renderScreed();};
+if($('addScreedWall'))$('addScreedWall').onclick=()=>{screedRooms.push({kind:'wall',name:'Τοιχίο μπετόν',w:3,l:0.5,t:15});renderScreed();};
+segInit('screedTypeSeg','t',v=>{screedType=v;$('screedRatioRow').style.display=v==='trad'?'flex':'none';$('screedReadyRow').style.display=v==='ready'?'flex':'none';calcScreed();});
+['screedRatio','cementBag','readyRate','readyBag'].forEach(id=>$(id).addEventListener('change',calcScreed));
+$('readyRate').addEventListener('input',calcScreed);
+if($('scVizSeg'))document.querySelectorAll('#scVizSeg button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#scVizSeg button').forEach(x=>x.classList.remove('active'));b.classList.add('active');scVizMode=b.dataset.v;drawScreedViz();});
+if($('scvSel'))$('scvSel').onchange=drawScreedViz;
+function calcScreed(){
+  let totVol=0,totArea=0,sumAreaThk=0,concreteVol=0;const res=[];
+  screedRooms.forEach((it,i)=>{const st=screedStats(it),vol=st.area*st.avg/100;
+    totVol+=vol;totArea+=st.area;sumAreaThk+=st.area*st.avg;if(it.kind==='wall')concreteVol+=vol;
+    res.push({name:it.name,area:st.area,avg:st.avg,min:st.min,max:st.max,vol,neg:st.neg});
+    const row=$('screedList').querySelector(`.feat[data-i="${i}"] [data-out]`);
+    if(row)row.innerHTML=`<b>${st.avg.toFixed(1)}cm</b> (${st.min.toFixed(1)}–${st.max.toFixed(1)}) · <b>${vol.toFixed(3)} m³</b>`;
+  });
+  $('screedRes').innerHTML=res.length?res.map(x=>`<tr><td>${x.name}${x.neg?' ⚠️':''}</td><td class="num">${x.area.toFixed(2)}</td><td class="num">${x.avg.toFixed(1)} <span class="small">(${x.min.toFixed(1)}–${x.max.toFixed(1)})</span></td><td class="num">${x.vol.toFixed(3)}</td></tr>`).join(''):'<tr><td colspan="4" class="small">Πρόσθεσε δωμάτιο ή ράμπα.</td></tr>';
+  $('screedVol').textContent=totVol.toFixed(2);$('screedM2').textContent=totArea.toFixed(2);
+  const sel=$('scvSel');if(sel){const cur=sel.value;sel.innerHTML=screedRooms.map((it,i)=>`<option value="${i}">${it.name}</option>`).join('');if(cur!==''&&screedRooms[cur])sel.value=cur;}
+  const V=totVol*1.1; // +10% απώλειες
+  const rows=[];
+  if(screedType==='trad'){
+    const n=parseFloat($('screedRatio').value),dry=1.3,bag=parseFloat($('cementBag').value);
+    const cementVol=dry/(1+n)*V, cementKg=cementVol*1440, sandVol=n*cementVol, sandKg=sandVol*1500, water=cementKg*0.5;
+    rows.push(['Τσιμέντο',Math.round(cementKg)+' kg ('+Math.ceil(cementKg/bag)+'×'+bag+'kg)']);
+    rows.push(['Άμμος',sandVol.toFixed(2)+' m³ (~'+Math.round(sandKg)+' kg)']);
+    rows.push(['Νερό (περίπου)',Math.round(water)+' L']);
+    rows.push(['Όγκος +10%',V.toFixed(2)+' m³']);
+  }else{
+    const rate=num('readyRate'),bag=parseFloat($('readyBag').value),kg=sumAreaThk*rate*1.1;
+    rows.push(['Έτοιμη τσιμεντοκονία',Math.round(kg)+' kg']);
+    rows.push(['Σακιά',Math.ceil(kg/bag)+' ×'+bag+'kg']);
+    rows.push(['Όγκος +10%',V.toFixed(2)+' m³']);
+  }
+  if(concreteVol>0)rows.push(['Γαρμπίλι (για μπετόν)',(concreteVol*0.85).toFixed(2)+' m³']);
+  $('screedMat').innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td class="num">${r[1]}</td></tr>`).join('');
+  const nt=$('screedMat').closest('.card').querySelector('.note');if(nt&&concreteVol>0)nt.innerHTML='🧱 Περιλαμβάνει '+concreteVol.toFixed(2)+' m³ μπετόν (τοιχίο) — για μπετόν πρόσθεσε γαρμπίλι/χονδρό αδρανές. Πρόβλεψε ~10% απώλειες.';
+  drawScreedViz();
+}
+function drawScreedViz(){
+  const cv=$('scv');if(!cv)return;const ctx=cv.getContext('2d');const cw=cv.parentElement.clientWidth-28;cv.width=Math.max(300,cw);cv.height=Math.round(cv.width*0.5);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const idx=$('scvSel')&&$('scvSel').value!==''?parseInt($('scvSel').value):0,it=screedRooms[idx];
+  if(!it){ctx.fillStyle=cssv('--muted');ctx.font='13px system-ui';ctx.textAlign='center';ctx.fillText('Πρόσθεσε δωμάτιο ή ράμπα.',cv.width/2,cv.height/2);return;}
+  const st=screedStats(it),mn=st.min,mx=Math.max(st.max,st.min+0.1),W=it.w*100,L=it.l*100,cInk=cssv('--ink');
+  if(W<=0||L<=0)return;
+  if(scVizMode==='map'){
+    const pad=40,s=Math.min((cv.width-2*pad)/W,(cv.height-2*pad)/L),ox=(cv.width-W*s)/2,oy=(cv.height-L*s)/2;
+    const NX=46,NY=Math.max(6,Math.round(NX*L/W));
+    for(let j=0;j<NY;j++)for(let i2=0;i2<NX;i2++){const u=(i2+0.5)/NX,v=(j+0.5)/NY;ctx.fillStyle=thColor(screedThAt(it,u,v),mn,mx);ctx.fillRect(ox+i2/NX*W*s-0.6,oy+j/NY*L*s-0.6,W*s/NX+1.2,L*s/NY+1.2);}
+    ctx.strokeStyle=cInk;ctx.lineWidth=2;ctx.strokeRect(ox,oy,W*s,L*s);
+    if(it.kind==='room'){for(let k=0;k<9;k++){const c=k%3,r=Math.floor(k/3),X=ox+(c/2)*W*s,Y=oy+(r/2)*L*s,t=Math.max(0,it.target-it.pts[PT_GRID[k]]);ctx.fillStyle='#fff';ctx.strokeStyle=cInk;ctx.lineWidth=1;ctx.beginPath();ctx.arc(X,Y,10,0,7);ctx.fill();ctx.stroke();ctx.fillStyle=cInk;ctx.font='bold 9px system-ui';ctx.textAlign='center';ctx.fillText(t.toFixed(0),X,Y+3);}}
+    else{ctx.fillStyle=cInk;ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.fillText('αρχή '+it.h1+'cm',ox+W*s/2,oy+14);ctx.fillText('τέλος '+it.h2+'cm',ox+W*s/2,oy+L*s-6);}
+    ctx.fillStyle=cInk;ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.fillText(it.w.toFixed(2)+' m',ox+W*s/2,oy+L*s+18);
+    ctx.save();ctx.translate(ox-12,oy+L*s/2);ctx.rotate(-Math.PI/2);ctx.fillText(it.l.toFixed(2)+' m',0,0);ctx.restore();
+  }else{
+    const c00=screedThAt(it,0,0),c10=screedThAt(it,1,0),c11=screedThAt(it,1,1),c01=screedThAt(it,0,1);
+    const ex=(0.22*Math.min(W,L))/(mx||1),P=(x,y,z)=>[(x-y)*0.866,(x+y)*0.5-z];
+    const cs=[[0,0,0],[W,0,0],[W,L,0],[0,L,0],[0,0,-c00*ex],[W,0,-c10*ex],[W,L,-c11*ex],[0,L,-c01*ex]];
+    const pr=cs.map(c=>P(...c)),xs=pr.map(p=>p[0]),ys=pr.map(p=>p[1]),minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+    const pad=40,s=Math.min((cv.width-2*pad)/(maxx-minx),(cv.height-2*pad)/(maxy-miny)),O={x:cv.width/2-((minx+maxx)/2)*s,y:cv.height/2-((miny+maxy)/2)*s};
+    const T=(x,y,z)=>{const p=P(x,y,z);return[O.x+p[0]*s,O.y+p[1]*s];};
+    const quad=(pts,fill,stroke)=>{ctx.beginPath();pts.forEach((p,i)=>{const q=T(p[0],p[1],p[2]);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.2;ctx.stroke();}};
+    quad([[0,0,0],[W,0,0],[W,0,-c10*ex],[0,0,-c00*ex]],thColor((c00+c10)/2,mn,mx),'#555');
+    quad([[W,0,0],[W,L,0],[W,L,-c11*ex],[W,0,-c10*ex]],thColor((c10+c11)/2,mn,mx),'#555');
+    quad([[0,0,0],[W,0,0],[W,L,0],[0,L,0]],'#e7edf3','#555');
+    [[0,0,c00],[W,0,c10],[W,L,c11],[0,L,c01]].forEach(([x,y,t])=>{const q=T(x,y,-t*ex);ctx.fillStyle=cInk;ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.fillText(t.toFixed(0)+'cm',q[0],q[1]+12);});
+    ctx.fillStyle=cInk;ctx.font='bold 11px system-ui';ctx.textAlign='center';const m=T(W/2,L,0);ctx.fillText('Επίπεδη τελική επιφάνεια (πάχος '+mn.toFixed(0)+'–'+mx.toFixed(0)+'cm)',m[0],m[1]+18);
+  }
+}
+
+/* ================= MARBLE ================= */
+const marbleItems=[];
+function renderMarble(){const b=$('marbleBody');
+  b.innerHTML=marbleItems.map((it,i)=>`<tr>
+    <td><input value="${it.desc}" data-i="${i}" data-f="desc" style="padding:4px"></td>
+    <td class="num"><input type="number" value="${it.l}" data-i="${i}" data-f="l" style="padding:4px;width:64px;text-align:right"></td>
+    <td class="num"><input type="number" value="${it.w}" data-i="${i}" data-f="w" style="padding:4px;width:64px;text-align:right"></td>
+    <td class="num"><input type="number" value="${it.n}" data-i="${i}" data-f="n" style="padding:4px;width:46px;text-align:right"></td>
+    <td><button class="btn sec mini" data-del="${i}">✕</button></td></tr>`).join('');
+  b.querySelectorAll('input').forEach(inp=>inp.oninput=()=>{marbleItems[inp.dataset.i][inp.dataset.f]=inp.dataset.f==='desc'?inp.value:(parseFloat(inp.value)||0);calcMarble();});
+  b.querySelectorAll('[data-del]').forEach(btn=>btn.onclick=()=>{marbleItems.splice(btn.dataset.del,1);renderMarble();calcMarble();});
+  calcMarble();
+}
+$('addMarble').onclick=()=>{marbleItems.push({desc:'Κομμάτι',l:100,w:30,n:1});renderMarble();};
+function calcMarble(){let area=0;marbleItems.forEach(it=>area+=(it.l*it.w/10000)*it.n);
+  const weight=area*(num('mThick')/100)*num('mDens');
+  $('mArea').textContent=area.toFixed(2);$('mWeight').textContent=Math.round(weight);
+  const rows=[];if($('mMethod').value==='mud'){rows.push(['Τσιμέντο','~'+Math.ceil(area*8)+' kg'],['Άμμος','~'+(area*0.04).toFixed(2)+' m³']);}else rows.push(['Λευκή κόλλα','~'+Math.ceil(area*4)+' kg']);
+  if($('mSeal').checked){rows.push(['Μαρμαρόκολλα','~'+Math.ceil(area*0.5)+' kg'],['Αδιαβροχοποιητικό','~'+(area*0.1).toFixed(1)+' L']);}
+  $('marbleMat').innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td class="num">${r[1]}</td></tr>`).join('');
+}
+['mThick','mDens','mMethod','mSeal'].forEach(id=>$(id).addEventListener('input',calcMarble));
+
+/* ================= GYPSUM ================= */
+let gType='wall';
+segInit('gTypeSeg','g',v=>{gType=v;calcGypsum();});
+['gW','gH','gSides','gStud','gBoard','gKind','gInsul','gOpen','gSpW','gSpH','gSpD','gSpShelves'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',calcGypsum);});
+if($('gSpecial'))$('gSpecial').addEventListener('change',()=>{const on=$('gSpecial').value!=='none';$('gSpecRow').style.display=on?'flex':'none';$('gSpecRow2').style.display=on?'flex':'none';calcGypsum();});
+function calcGypsum(){
+  const w=num('gW'),h=num('gH'),sides=parseInt($('gSides').value),stud=num('gStud')/100,gross=w*h;
+  const open=Math.max(0,num('gOpen')),area=Math.max(0,gross-open);
+  const boardArea=({'1.2x2.6':3.12,'1.2x3':3.6,'1.2x2':2.4})[$('gBoard').value];
+  let boards=area*sides/boardArea*1.1;
+  let strot,orth;if(gType==='wall'){strot=2*w;orth=(Math.floor(w/stud)+1)*h;}else{strot=2*(w+h);orth=(Math.floor(w/stud)+1)*h;}
+  if(open>0)orth+=4*Math.sqrt(open); // περιμετρικός σκελετός ανοίγματος
+  let screws=area*sides*(sides===2?25:20);
+  // ειδική κατασκευή
+  const sp=$('gSpecial')?$('gSpecial').value:'none'; let spArea=0,spNote='';
+  if(sp!=='none'){const W=num('gSpW'),H=num('gSpH'),D=num('gSpD')/100,n=Math.max(0,num('gSpShelves'));
+    spArea=2*(H*D)+(n+2)*(W*D)+0.15*W*H; // 2 πλαϊνά + πάνω/κάτω + ράφια + μετώπη
+    boards+=spArea/boardArea*1.1; orth+=(n+2)*W+2*H; screws+=spArea*30;
+    spNote=({bookcase:'Βιβλιοθήκη',tv:'Έπιπλο TV',shelf:'Ραφιέρα',niche:'Κρυφή εσοχή'})[sp]+': +'+spArea.toFixed(2)+' m² γυψοσανίδα, '+n+' ράφια';
+  }
+  boards=Math.ceil(boards);screws=Math.ceil(screws);
+  $('gArea').textContent=area.toFixed(2);$('gBoards').textContent=boards;
+  const rows=[['Γυψοσανίδες',boards+' φύλλα'],['Στρωτήρες',strot.toFixed(1)+' m ('+Math.ceil(strot/3)+'×3m)'],['Ορθοστάτες',orth.toFixed(1)+' m ('+Math.ceil(orth/3)+'×3m)'],['Βίδες',screws+' τεμ.'],['Χαρτοταινία',Math.ceil((area*sides+spArea)*1.2)+' m'],['Στόκος',((area*sides+spArea)*0.4).toFixed(1)+' kg']];
+  if($('gInsul').checked)rows.splice(4,0,['Πετροβάμβακας',area.toFixed(2)+' m²']);
+  $('gypsumMat').innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td class="num">${r[1]}</td></tr>`).join('');
+  const note=$('gypsumMat').closest('.card').querySelector('.note'); if(note)note.innerHTML=(open>0?('🚪 Αφαιρέθηκαν '+open.toFixed(2)+' m² ανοιγμάτων. '):'')+(spNote?('🗄️ '+spNote+'. '):'')+'Αρμοί → χαρτοταινία + στόκος σε 2–3 χέρια.';
+  drawGypsumViz();
+}
+let gVizMode='2d';
+if($('gVizSeg'))document.querySelectorAll('#gVizSeg button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#gVizSeg button').forEach(x=>x.classList.remove('active'));b.classList.add('active');gVizMode=b.dataset.v;drawGypsumViz();});
+function drawGypsumViz(){
+  const cv=$('gcv');if(!cv)return;const ctx=cv.getContext('2d');const cw=cv.parentElement.clientWidth-28;cv.width=Math.max(300,cw);cv.height=Math.round(cv.width*0.56);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const W=num('gW')*100,H=num('gH')*100,stud=num('gStud')||60,open=Math.max(0,num('gOpen'));
+  if(W<=0||H<=0){ctx.fillStyle=cssv('--muted');ctx.font='13px system-ui';ctx.textAlign='center';ctx.fillText('Δώσε διαστάσεις.',cv.width/2,cv.height/2);return;}
+  const sp=$('gSpecial')?$('gSpecial').value:'none',spW=num('gSpW')*100,spH=num('gSpH')*100,spD=num('gSpD'),spN=Math.max(0,num('gSpShelves'));
+  const cGB='#dfe6ee',cFrame='#8a97a6',cInk=cssv('--ink'),cShelf='#b98a4b';
+  // representative opening (door) if any
+  const opW=open>0?Math.min(W*0.5,Math.max(70,open*10000/210)):0, opH=open>0?Math.min(H*0.92,210):0, opX=W*0.12, opY=0;
+  if(gVizMode==='2d'){
+    const pad=34,s=Math.min((cv.width-2*pad)/W,(cv.height-2*pad)/H),ox=(cv.width-W*s)/2,oy=(cv.height-H*s)/2;
+    const X=x=>ox+x*s,Y=y=>oy+(H-y)*s;
+    ctx.fillStyle=cGB;ctx.fillRect(X(0),Y(H),W*s,H*s);
+    // board seams (1.2m)
+    ctx.strokeStyle='#c3ccd6';ctx.lineWidth=1;for(let x=120;x<W;x+=120){ctx.beginPath();ctx.moveTo(X(x),Y(H));ctx.lineTo(X(x),Y(0));ctx.stroke();}
+    // studs
+    ctx.strokeStyle=cFrame;ctx.lineWidth=3;for(let x=0;x<=W+1;x+=stud){ctx.beginPath();ctx.moveTo(X(Math.min(x,W)),Y(0));ctx.lineTo(X(Math.min(x,W)),Y(H));ctx.stroke();}
+    ctx.beginPath();ctx.moveTo(X(W),Y(0));ctx.lineTo(X(W),Y(H));ctx.stroke();
+    // top/bottom tracks
+    ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(X(0),Y(0));ctx.lineTo(X(W),Y(0));ctx.moveTo(X(0),Y(H));ctx.lineTo(X(W),Y(H));ctx.stroke();
+    // opening
+    if(open>0){ctx.fillStyle='rgba(150,160,175,.55)';ctx.fillRect(X(opX),Y(opY+opH),opW*s,opH*s);ctx.save();ctx.strokeStyle=cssv('--bad');ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.strokeRect(X(opX),Y(opY+opH),opW*s,opH*s);ctx.restore();ctx.fillStyle=cInk;ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.fillText('ΑΝΟΙΓΜΑ',X(opX+opW/2),Y(opY+opH/2));}
+    // special construction
+    if(sp!=='none'&&spW>0&&spH>0){const sx=W-spW-10,sy=0;ctx.strokeStyle=cShelf;ctx.lineWidth=2.5;ctx.strokeRect(X(sx),Y(sy+spH),spW*s,spH*s);
+      for(let i=1;i<=spN;i++){const yy=sy+spH*i/(spN+1);ctx.beginPath();ctx.moveTo(X(sx),Y(yy));ctx.lineTo(X(sx+spW),Y(yy));ctx.stroke();}
+      ctx.fillStyle=cShelf;ctx.font='bold 10px system-ui';ctx.fillText(({bookcase:'Βιβλιοθήκη',tv:'Έπιπλο TV',shelf:'Ραφιέρα',niche:'Εσοχή'})[sp]||'',X(sx+spW/2),Y(sy+spH)-4);}
+    // dims
+    ctx.fillStyle=cInk;ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.fillText((W/100).toFixed(2)+' m',X(W/2),Y(0)+16);
+    ctx.save();ctx.translate(X(0)-10,Y(H/2));ctx.rotate(-Math.PI/2);ctx.fillText((H/100).toFixed(2)+' m',0,0);ctx.restore();
+  } else {
+    // 3D iso: wall panel W(x)×H(z) with depth D(y)=profile ~8cm, studs on face, special box protruding
+    const D=8,P=(x,y,z)=>[(x-y)*0.866,(x+y)*0.5-z];
+    const cs=[[0,0,0],[W,0,0],[W,D,0],[0,D,0],[0,0,H],[W,0,H],[W,D,H],[0,D,H]];
+    if(sp!=='none'){cs.push([W-spW-10,0,0],[W-10,0,0],[W-10,0,spH],[W-spW-10,-spD,spH]);}
+    const pr=cs.map(c=>P(...c)),xs=pr.map(p=>p[0]),ys=pr.map(p=>p[1]),minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+    const pad=30,s=Math.min((cv.width-2*pad)/(maxx-minx),(cv.height-2*pad)/(maxy-miny)),O={x:cv.width/2-((minx+maxx)/2)*s,y:cv.height/2-((miny+maxy)/2)*s};
+    const T=(x,y,z)=>{const p=P(x,y,z);return[O.x+p[0]*s,O.y+p[1]*s];};
+    const quad=(pts,fill,stroke,lw)=>{ctx.beginPath();pts.forEach((p,i)=>{const q=T(p[0],p[1],p[2]);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();}};
+    quad([[0,D,0],[W,D,0],[W,D,H],[0,D,H]],'#c7d0da','#7d8ea0',1.5); // back
+    quad([[W,0,0],[W,D,0],[W,D,H],[W,0,H]],'#b9c3ce','#7d8ea0',1); // side
+    quad([[0,0,H],[W,0,H],[W,D,H],[0,D,H]],'#cfd8e1','#7d8ea0',1); // top
+    quad([[0,0,0],[W,0,0],[W,0,H],[0,0,H]],cGB,'#7d8ea0',1.5); // front face
+    // studs on front
+    ctx.strokeStyle=cFrame;ctx.lineWidth=2;for(let x=0;x<=W;x+=stud){const a=T(Math.min(x,W),0,0),b=T(Math.min(x,W),0,H);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();}
+    // opening on front
+    if(open>0){quad([[opX,0,opY],[opX+opW,0,opY],[opX+opW,0,opY+opH],[opX,0,opY+opH]],'rgba(150,160,175,.6)','#b00',1.5);}
+    // special box protruding (-y)
+    if(sp!=='none'&&spW>0){const x0=W-spW-10,x1=W-10;
+      quad([[x0,0,0],[x1,0,0],[x1,0,spH],[x0,0,spH]],'#d8c3a0','#8a5a24',1);
+      quad([[x0,0,0],[x0,-spD,0],[x0,-spD,spH],[x0,0,spH]],'#c9b48f','#8a5a24',1);
+      quad([[x0,-spD,spH],[x1,-spD,spH],[x1,0,spH],[x0,0,spH]],'#e0cca7','#8a5a24',1); // top
+      for(let i=1;i<=spN;i++){const zz=spH*i/(spN+1),a=T(x0,-spD,zz),b=T(x1,-spD,zz),c=T(x1,0,zz),d=T(x0,0,zz);ctx.strokeStyle='#8a5a24';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.lineTo(c[0],c[1]);ctx.stroke();}
+    }
+    ctx.fillStyle=cInk;ctx.font='bold 11px system-ui';ctx.textAlign='center';const m=T(W/2,0,0);ctx.fillText((W/100).toFixed(2)+'×'+(H/100).toFixed(2)+' m',m[0],m[1]+16);
+  }
+}
+
+/* ================= SAVE ================= */
+$('saveBtn').onclick=()=>{
+  const d={features,pattern,startMode,mode,hbAngle,walls,wPattern,wVStart,screedRooms,
+    tile:['tileW','tileL','tileT','grout','boxM2','boxPrice','trowel','substrate','doorTotal'].reduce((o,k)=>{o[k]=$(k)?$(k).value:'';return o;},{})};
+  localStorage.setItem('mastoras2',JSON.stringify(d));
+  $('saveBtn').textContent='✅ ΟΚ';setTimeout(()=>$('saveBtn').textContent='💾 Αποθήκευση',1200);
+};
+function loadSaved(){try{const d=JSON.parse(localStorage.getItem('mastoras2'));if(!d)return false;
+  features=d.features||[];uid=Math.max(1,...features.map(f=>f.id||0))+1;pattern=d.pattern||'straight';startMode=d.startMode||'center';mode=d.mode||'rect';hbAngle=d.hbAngle||0;
+  walls=d.walls||[];wPattern=d.wPattern||'straight';wVStart=d.wVStart||'bottomfull';screedRooms=d.screedRooms||[];
+  if(d.tile)Object.keys(d.tile).forEach(k=>{if($(k))$(k).value=d.tile[k];});
+  document.querySelectorAll('#patternSeg button').forEach(b=>b.classList.toggle('active',b.dataset.p===pattern));
+  document.querySelectorAll('#startSeg button').forEach(b=>b.classList.toggle('active',b.dataset.s===startMode));
+  return true;}catch(e){return false;}}
+
+/* ================= INIT ================= */
+if(!loadSaved()){defaultPlan();defaultWalls();}
+if(!walls.length)defaultWalls();
+if(!screedRooms.length)defaultScreed();
+renderFeatList();renderWallList();renderScreed();
+marbleItems.push({desc:'Ποδιά παραθύρου',l:120,w:25,n:3},{desc:'Σκαλοπάτι',l:100,w:33,n:10});
+renderMarble();calcGypsum();
+window.addEventListener('resize',()=>{clearTimeout(window._rt);window._rt=setTimeout(()=>{fitAndDraw();calcWalls();drawIso();drawGypsumViz();drawScreedViz();},150);});
+fitAndDraw();
+</script>
+</body>
+</html>

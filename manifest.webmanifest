@@ -1,0 +1,19 @@
+{
+  "name": "Ο Μάστορας — Επιμέτρηση & Τοποθέτηση",
+  "short_name": "Ο Μάστορας",
+  "description": "Επιμέτρηση & τοποθέτηση πλακιδίων, μαρμάρων, γυψοσανίδων· κάτοψη σπιτιού, κοψίματα, υλικά, κόστος, τσιμεντοκονία & 3D.",
+  "lang": "el",
+  "dir": "ltr",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "display_override": ["standalone", "fullscreen", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#eef1f5",
+  "theme_color": "#c0562b",
+  "icons": [
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512.png", "sizes": "192x192", "type": "image/png", "purpose": "any" }
+  ]
+}
