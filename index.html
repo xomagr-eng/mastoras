@@ -95,7 +95,7 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
 <body>
 <header>
   <div class="logo">🧱</div>
-  <div style="flex:1"><h1>Ο Μάστορας</h1><div class="sub">Επιμέτρηση &amp; Τοποθέτηση — Πλακάκια · Μάρμαρα · Γυψοσανίδες</div></div>
+  <div style="flex:1"><h1>Ο Μάστορας <span style="font-size:12px;font-weight:600;opacity:.85;white-space:nowrap">© by Chronis Makris</span></h1><div class="sub">Επιμέτρηση &amp; Τοποθέτηση — Πλακάκια · Μάρμαρα · Γυψοσανίδες</div></div>
   <button id="fsBtn" title="Πλήρης οθόνη" style="background:rgba(255,255,255,.18);border:none;color:#fff;font-size:18px;padding:8px 12px;border-radius:9px;cursor:pointer">⛶</button>
 </header>
 
@@ -323,6 +323,13 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
       <div style="height:8px"></div>
       <label>Κάθετη εκκίνηση</label>
       <div class="seg" id="wStartSeg"><button data-v="bottomfull" class="active">Ολόκληρα κάτω</button><button data-v="topfull">Ολόκληρα πάνω</button></div>
+      <label style="margin-top:8px">🖼️ Εικόνα πλακιδίου τοίχου (ρεαλιστική όψη)</label>
+      <div class="btnrow" style="margin-top:2px">
+        <label class="btn sec mini" style="cursor:pointer">📷 Επιλογή εικόνας<input id="wTileImgFile" type="file" accept="image/*" style="display:none"></label>
+        <button class="btn sec mini" id="wTileImgClear">✕ Αφαίρεση</button>
+        <span class="small" id="wTileImgName" style="align-self:center">— καμία —</span>
+      </div>
+      <div class="hint">Ανέβασε φωτογραφία του πλακιδίου τοίχου· θα «ντυθεί» πάνω στην όψη ρεαλιστικά (κάθε πλακάκι με την υφή, κοψίματα & αρμοί σωστά) σε 2D & 3D.</div>
     </div>
   </div>
   <div>
@@ -575,7 +582,7 @@ function polyObj(rings){return {regions:rings,inverted:false};}
 function rot(p,c,a){const s=Math.sin(a),co=Math.cos(a),dx=p[0]-c.x,dy=p[1]-c.y;return[c.x+dx*co-dy*s,c.y+dx*s+dy*co];}
 
 /* ================= FLOOR STATE ================= */
-let pattern='straight', startMode='center', mode='rect', hbAngle=0, laborMode='m2', tileImg=null;
+let pattern='straight', startMode='center', mode='rect', hbAngle=0, laborMode='m2', tileImg=null, wallImg=null;
 let features=[]; // {id,kind:'room'|'column',type,shape:'rect'|'poly',name,x,y,w,h,points:[[x,y]]}
 let drawPts=[]; let uid=1;
 // type -> geometry kind + default label.
@@ -1102,6 +1109,11 @@ function setTileImg(url,name){if(!url){tileImg=null;if($('tileImgName'))$('tileI
 if($('tileImgFile'))$('tileImgFile').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>setTileImg(rd.result,f.name);rd.readAsDataURL(f);};
 if($('tileImgClear'))$('tileImgClear').onclick=()=>{if($('tileImgFile'))$('tileImgFile').value='';setTileImg(null);};
 try{const savedImg=localStorage.getItem('mastoras_tileimg');if(savedImg)setTileImg(savedImg,'αποθηκευμένη');}catch(e){}
+function setWallImg(url,name){if(!url){wallImg=null;if($('wTileImgName'))$('wTileImgName').textContent='— καμία —';try{localStorage.removeItem('mastoras_walltileimg');}catch(e){}calcWalls();if(typeof drawIso==='function'){try{drawIso();}catch(e){}}return;}
+  const im=new Image();im.onload=()=>{wallImg=im;calcWalls();if(typeof drawIso==='function'){try{drawIso();}catch(e){}}};im.src=url;if($('wTileImgName'))$('wTileImgName').textContent=name||'εικόνα';try{localStorage.setItem('mastoras_walltileimg',url);}catch(e){}}
+if($('wTileImgFile'))$('wTileImgFile').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>setWallImg(rd.result,f.name);rd.readAsDataURL(f);};
+if($('wTileImgClear'))$('wTileImgClear').onclick=()=>{if($('wTileImgFile'))$('wTileImgFile').value='';setWallImg(null);};
+try{const savedWImg=localStorage.getItem('mastoras_walltileimg');if(savedWImg)setWallImg(savedWImg,'αποθηκευμένη');}catch(e){}
 
 function fitAndDraw(){const cv=$('cv');const w=cv.parentElement.clientWidth-28;cv.width=Math.max(320,w);cv.height=Math.round(cv.width*0.78);recalcFloor();}
 
@@ -1190,10 +1202,22 @@ function drawWall(d){
   const X=x=>PX+Z*(ox+x*sc), Y=y=>PY+Z*(oy+(d.H-y)*sc); // y up, with user zoom/pan
   wT={ox,oy,sc,H:d.H,W:d.W};
   const cFull=cssv('--full'),cCut=cssv('--cut'),cTri=cssv('--tri'),cEdge=cssv('--cutedge'),cInk=cssv('--ink');
+  const wtex=!!(wallImg&&wallImg.complete&&wallImg.naturalWidth);
   d.r.tiles.forEach(t=>{
-    t.rings.forEach(r=>{ctx.beginPath();r.forEach((p,i)=>{const xx=X(p[0]),yy=Y(p[1]);i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);});ctx.closePath();
-      ctx.fillStyle=t.full?cFull:(t.rect?cCut:cTri);ctx.fill();ctx.strokeStyle=t.full?'rgba(0,0,0,.16)':cEdge;ctx.lineWidth=t.full?0.6:1.2;ctx.stroke();});
-    if(!t.full&&Math.min(t.w,t.h)*sc>15){ctx.fillStyle=cInk;ctx.font='9px system-ui';ctx.textAlign='center';ctx.fillText((t.rect?'':'~')+round(t.w)+'×'+round(t.h),X(t.cx),Y(t.cy)+3);}
+    if(wtex&&t.q){ // realistic: paint tile image, clipped to the (possibly cut) shape
+      const A=t.q[0],B=t.q[1],Dq=t.q[2],iw=wallImg.naturalWidth,ih=wallImg.naturalHeight;
+      const ax=X(A[0]),ay=Y(A[1]),bx=X(B[0]),by=Y(B[1]),dx=X(Dq[0]),dy=Y(Dq[1]);
+      ctx.save();ctx.beginPath();t.rings.forEach(r=>{r.forEach((p,i)=>{const xx=X(p[0]),yy=Y(p[1]);i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);});ctx.closePath();});ctx.clip();
+      ctx.setTransform((bx-ax)/iw,(by-ay)/iw,(dx-ax)/ih,(dy-ay)/ih,ax,ay);
+      ctx.drawImage(wallImg,0,0,iw,ih);
+      ctx.setTransform(1,0,0,1,0,0);ctx.restore();
+      ctx.strokeStyle='rgba(0,0,0,.28)';ctx.lineWidth=t.full?0.6:1;
+      t.rings.forEach(r=>{ctx.beginPath();r.forEach((p,i)=>{const xx=X(p[0]),yy=Y(p[1]);i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);});ctx.closePath();});ctx.stroke();
+    } else {
+      t.rings.forEach(r=>{ctx.beginPath();r.forEach((p,i)=>{const xx=X(p[0]),yy=Y(p[1]);i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);});ctx.closePath();
+        ctx.fillStyle=t.full?cFull:(t.rect?cCut:cTri);ctx.fill();ctx.strokeStyle=t.full?'rgba(0,0,0,.16)':cEdge;ctx.lineWidth=t.full?0.6:1.2;ctx.stroke();});
+    }
+    if(!t.full&&Math.min(t.w,t.h)*sc>15){ctx.fillStyle=wtex?'#fff':cInk;ctx.font='9px system-ui';ctx.textAlign='center';ctx.fillText((t.rect?'':'~')+round(t.w)+'×'+round(t.h),X(t.cx),Y(t.cy)+3);}
   });
   ctx.strokeStyle=cInk;ctx.lineWidth=2;ctx.strokeRect(X(0),Y(d.H),d.W*sc*Z,d.H*sc*Z);
   // openings χρωματιστά ανά τύπο — σύρσιμο όταν ξεκλείδωτο
@@ -1321,15 +1345,21 @@ function drawIso(){
   const quad=(pts,fill,stroke,lw)=>{ctx.beginPath();pts.forEach((p,i)=>{const q=T(p[0],p[1],p[2]);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1.5;ctx.stroke();}};
   const seg=(a,b,col,lw)=>{const p=T(a[0],a[1],a[2]),q=T(b[0],b[1],b[2]);ctx.strokeStyle=col;ctx.lineWidth=lw||1;ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1]);ctx.stroke();};
   const gcol='#aebccb', wLeft='#ccd7e3', wRight='#dde6ef', flr='#eef2f6';
-  // LEFT wall x=0 (spans y,z)
-  quad([[0,0,0],[0,Wy,0],[0,Wy,H],[0,0,H]],wLeft,'#7d8ea0',2);
   const wpx=num('wTileW')+num('wGrout')/10||30,wpy=num('wTileL')+num('wGrout')/10||30;
-  for(let y=wpy;y<Wy;y+=wpy)if(Wy/wpy<80)seg([0,y,0],[0,y,H],gcol);
-  for(let z=wpy;z<H;z+=wpy)if(H/wpy<80)seg([0,0,z],[0,Wy,z],gcol);
+  const wtex=!!(wallImg&&wallImg.complete&&wallImg.naturalWidth),iwW=wtex?wallImg.naturalWidth:1,ihW=wtex?wallImg.naturalHeight:1;
+  const texCell=(A,B,C,D)=>{const a=T(...A),b=T(...B),c=T(...C),d=T(...D);
+    ctx.save();ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.lineTo(c[0],c[1]);ctx.lineTo(d[0],d[1]);ctx.closePath();ctx.clip();
+    ctx.setTransform((b[0]-a[0])/iwW,(b[1]-a[1])/iwW,(d[0]-a[0])/ihW,(d[1]-a[1])/ihW,a[0],a[1]);
+    ctx.drawImage(wallImg,0,0,iwW,ihW);ctx.setTransform(1,0,0,1,0,0);ctx.restore();
+    ctx.strokeStyle='rgba(0,0,0,.28)';ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.lineTo(c[0],c[1]);ctx.lineTo(d[0],d[1]);ctx.closePath();ctx.stroke();};
+  // LEFT wall x=0 (spans y,z)
+  quad([[0,0,0],[0,Wy,0],[0,Wy,H],[0,0,H]],wtex?'#cdc7bd':wLeft,'#7d8ea0',2);
+  if(wtex){for(let z=0;z<H;z+=wpy){const ch=Math.min(wpy,H-z);for(let y=0;y<Wy;y+=wpx){const cw=Math.min(wpx,Wy-y);texCell([0,y,z],[0,y+cw,z],[0,y+cw,z+ch],[0,y,z+ch]);}}}
+  else{for(let y=wpx;y<Wy;y+=wpx)if(Wy/wpx<80)seg([0,y,0],[0,y,H],gcol);for(let z=wpy;z<H;z+=wpy)if(H/wpy<80)seg([0,0,z],[0,Wy,z],gcol);}
   // RIGHT wall y=0 (spans x,z)
-  quad([[0,0,0],[Wx,0,0],[Wx,0,H],[0,0,H]],wRight,'#7d8ea0',2);
-  for(let x=wpx;x<Wx;x+=wpx)if(Wx/wpx<80)seg([x,0,0],[x,0,H],gcol);
-  for(let z=wpy;z<H;z+=wpy)if(H/wpy<80)seg([0,0,z],[Wx,0,z],gcol);
+  quad([[0,0,0],[Wx,0,0],[Wx,0,H],[0,0,H]],wtex?'#cdc7bd':wRight,'#7d8ea0',2);
+  if(wtex){for(let z=0;z<H;z+=wpy){const ch=Math.min(wpy,H-z);for(let x=0;x<Wx;x+=wpx){const cw=Math.min(wpx,Wx-x);texCell([x,0,z],[x+cw,0,z],[x+cw,0,z+ch],[x,0,z+ch]);}}}
+  else{for(let x=wpx;x<Wx;x+=wpx)if(Wx/wpx<80)seg([x,0,0],[x,0,H],gcol);for(let z=wpy;z<H;z+=wpy)if(H/wpy<80)seg([0,0,z],[Wx,0,z],gcol);}
   // FLOOR z=0
   quad([[0,0,0],[Wx,0,0],[Wx,Wy,0],[0,Wy,0]],flr,'#7d8ea0',2);
   const fpx=num('tileW')+num('grout')/10||60,fpy=num('tileL')+num('grout')/10||60;
