@@ -166,6 +166,13 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
         <div><label class="small">Πόρτες (m)</label><input id="doorTotal" type="number" step="0.1" value="1.6" title="τρέχοντα μέτρα εσωτ. ανοιγμάτων — αφαιρούνται από το σοβατεπί"></div>
         <div><label class="small">Μπαλκονόπ. (τεμ.)</label><input id="balconyN" type="number" step="1" value="0" title="μπαλκονόπορτες — προσθέτουν κατώφλι/μαρμαροποδιά & αφαιρούν σοβατεπί"></div>
       </div>
+      <label>🖼️ Εικόνα πλακιδίου (ρεαλιστική όψη)</label>
+      <div class="btnrow" style="margin-top:2px">
+        <label class="btn sec mini" style="cursor:pointer">📷 Επιλογή εικόνας<input id="tileImgFile" type="file" accept="image/*" style="display:none"></label>
+        <button class="btn sec mini" id="tileImgClear">✕ Αφαίρεση</button>
+        <span class="small" id="tileImgName" style="align-self:center">— καμία —</span>
+      </div>
+      <div class="hint">Ανέβασε φωτογραφία του πλακιδίου· θα «ντυθεί» πάνω στην κάτοψη ρεαλιστικά (κάθε πλακάκι με την υφή, κοψίματα & αρμοί σωστά).</div>
     </div>
 
     <div class="card">
@@ -568,7 +575,7 @@ function polyObj(rings){return {regions:rings,inverted:false};}
 function rot(p,c,a){const s=Math.sin(a),co=Math.cos(a),dx=p[0]-c.x,dy=p[1]-c.y;return[c.x+dx*co-dy*s,c.y+dx*s+dy*co];}
 
 /* ================= FLOOR STATE ================= */
-let pattern='straight', startMode='center', mode='rect', hbAngle=0, laborMode='m2';
+let pattern='straight', startMode='center', mode='rect', hbAngle=0, laborMode='m2', tileImg=null;
 let features=[]; // {id,kind:'room'|'column',type,shape:'rect'|'poly',name,x,y,w,h,points:[[x,y]]}
 let drawPts=[]; let uid=1;
 // type -> geometry kind + default label.
@@ -745,6 +752,7 @@ function tileRegion(regionPoly,o){
     if(tot<0.4) continue;
     const isFull=tot>=fullArea-0.8;
     const cls=classify(res.regions,tot,isFull);
+    cls.q=[ring[0],ring[1],ring[3]]; // original tile placement: A(origin), B(+width), D(+height) — for texture mapping
     out.push(cls); if(isFull)full++;else cut++;
   }
   return {tiles:out,full,cut,bb,area:regionArea(regionPoly)};
@@ -901,19 +909,31 @@ function drawFloor(state){
   computeView(cv,features);
   ctx.clearRect(0,0,cv.width,cv.height);
   const cFull=cssv('--full'),cCut=cssv('--cut'),cTri=cssv('--tri'),cEdge=cssv('--cutedge'),cInk=cssv('--ink'),cRoom=cssv('--room'),cCol=cssv('--col'),cLine=cssv('--line');
-  // rooms fill
-  features.filter(f=>f.kind==='room').forEach(f=>{ctx.fillStyle=cRoom;fillRing(ctx,ringOf(f));});
+  const tex=!!(tileImg&&tileImg.complete&&tileImg.naturalWidth);
+  // rooms fill (grout tone when textured)
+  features.filter(f=>f.kind==='room').forEach(f=>{ctx.fillStyle=tex?'#cdc7bd':cRoom;fillRing(ctx,ringOf(f));});
   // tiles
   if(state&&state.r){
+    const pathRings=t=>{t.rings.forEach(r=>{ctx.beginPath();r.forEach((p,i)=>{const X=TX(p[0]),Y=TY(p[1]);i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});ctx.closePath();});};
     state.r.tiles.forEach(t=>{
-      t.rings.forEach(r=>{
-        ctx.beginPath();r.forEach((p,i)=>{const X=TX(p[0]),Y=TY(p[1]);i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});ctx.closePath();
-        ctx.fillStyle=t.full?cFull:(t.rect?cCut:cTri);ctx.fill();
-        ctx.strokeStyle=t.full?'rgba(0,0,0,.16)':cEdge;ctx.lineWidth=t.full?0.6:1.2;ctx.stroke();
-      });
-      if(!t.full){const wv=round(t.w),hv=round(t.h);if(Math.min(t.w,t.h)*view.sc>15){
-        ctx.fillStyle=cInk;ctx.font='9px system-ui';ctx.textAlign='center';
-        ctx.fillText((t.rect?'':'~')+wv+'×'+hv,TX(t.cx),TY(t.cy)+3);}}
+      if(tex&&t.q){ // realistic: paint the tile image, clipped to the (possibly cut) shape
+        const A=t.q[0],B=t.q[1],D=t.q[2],iw=tileImg.naturalWidth,ih=tileImg.naturalHeight;
+        const ax=TX(A[0]),ay=TY(A[1]),bx=TX(B[0]),by=TY(B[1]),dx=TX(D[0]),dy=TY(D[1]);
+        ctx.save();ctx.beginPath();t.rings.forEach(r=>{r.forEach((p,i)=>{const X=TX(p[0]),Y=TY(p[1]);i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});ctx.closePath();});ctx.clip();
+        ctx.setTransform((bx-ax)/iw,(by-ay)/iw,(dx-ax)/ih,(dy-ay)/ih,ax,ay);
+        ctx.drawImage(tileImg,0,0,iw,ih);
+        ctx.setTransform(1,0,0,1,0,0);ctx.restore();
+        ctx.strokeStyle='rgba(0,0,0,.28)';ctx.lineWidth=t.full?0.6:1;pathRings(t);ctx.stroke();
+      } else {
+        t.rings.forEach(r=>{
+          ctx.beginPath();r.forEach((p,i)=>{const X=TX(p[0]),Y=TY(p[1]);i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});ctx.closePath();
+          ctx.fillStyle=t.full?cFull:(t.rect?cCut:cTri);ctx.fill();
+          ctx.strokeStyle=t.full?'rgba(0,0,0,.16)':cEdge;ctx.lineWidth=t.full?0.6:1.2;ctx.stroke();
+        });
+        if(!t.full){const wv=round(t.w),hv=round(t.h);if(Math.min(t.w,t.h)*view.sc>15){
+          ctx.fillStyle=cInk;ctx.font='9px system-ui';ctx.textAlign='center';
+          ctx.fillText((t.rect?'':'~')+wv+'×'+hv,TX(t.cx),TY(t.cy)+3);}}
+      }
     });
   }
   // columns
@@ -1076,6 +1096,12 @@ segInit('laborSeg','l',v=>{laborMode=v;$('laborM2Row').style.display=v==='m2'?'f
 $('offX').addEventListener('input',()=>$('offXv').textContent=$('offX').value);
 $('offY').addEventListener('input',()=>$('offYv').textContent=$('offY').value);
 $('uneven').addEventListener('change',()=>$('levelRow').style.display=$('uneven').checked?'flex':'none');
+// tile image (realistic look)
+function setTileImg(url,name){if(!url){tileImg=null;if($('tileImgName'))$('tileImgName').textContent='— καμία —';try{localStorage.removeItem('mastoras_tileimg');}catch(e){}recalcFloor();return;}
+  const im=new Image();im.onload=()=>{tileImg=im;recalcFloor();};im.src=url;if($('tileImgName'))$('tileImgName').textContent=name||'εικόνα';try{localStorage.setItem('mastoras_tileimg',url);}catch(e){}}
+if($('tileImgFile'))$('tileImgFile').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>setTileImg(rd.result,f.name);rd.readAsDataURL(f);};
+if($('tileImgClear'))$('tileImgClear').onclick=()=>{if($('tileImgFile'))$('tileImgFile').value='';setTileImg(null);};
+try{const savedImg=localStorage.getItem('mastoras_tileimg');if(savedImg)setTileImg(savedImg,'αποθηκευμένη');}catch(e){}
 
 function fitAndDraw(){const cv=$('cv');const w=cv.parentElement.clientWidth-28;cv.width=Math.max(320,w);cv.height=Math.round(cv.width*0.78);recalcFloor();}
 
