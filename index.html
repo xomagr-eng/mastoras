@@ -45,6 +45,24 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
   .wrap{max-width:1500px;margin:0 auto;padding:12px}
   .grid{display:grid;grid-template-columns:340px 1fr 330px;gap:12px;align-items:start}
   @media(max-width:1150px){.grid{grid-template-columns:1fr}}
+  /* Landscape (κινητό/τάμπλετ γυρισμένο οριζόντια) → μεγαλύτερη, πολυστήλη διάταξη */
+  @media(orientation:landscape) and (min-width:900px) and (max-width:1150px){
+    .wrap{padding:8px}
+    .grid{grid-template-columns:300px 1fr 300px}
+    #tab-tools .grid,#toolsGrid{grid-template-columns:1fr 1fr!important}
+  }
+  @media(orientation:landscape) and (max-width:899px){
+    header{padding:6px 12px}
+    header .logo{font-size:20px}
+    header h1{font-size:15px}
+    header .sub{display:none}
+    .tabs{top:44px}
+    .wrap{padding:6px;max-width:100%}
+    .grid{grid-template-columns:minmax(0,300px) 1fr!important;gap:8px}
+    #toolsGrid{grid-template-columns:1fr 1fr!important}
+    .card{padding:10px;margin-bottom:8px}
+  }
+  body.landscape-hint::after{content:"↻ Γύρισε οριζόντια για μεγαλύτερη οθόνη";position:fixed;left:50%;bottom:14px;transform:translateX(-50%);background:var(--accent);color:#fff;padding:7px 14px;border-radius:20px;font-size:12px;z-index:60;box-shadow:var(--shadow);opacity:.95;pointer-events:none}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:12px}
   .card h2{font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:flex;align-items:center;gap:8px;justify-content:space-between}
   .row{display:flex;gap:8px;margin-bottom:10px}
@@ -106,6 +124,7 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
   <button data-tab="screed">🪣 Τσιμεντοκονία</button>
   <button data-tab="marble">🏛️ Μάρμαρα</button>
   <button data-tab="gypsum">📐 Γυψοσανίδες</button>
+  <button data-tab="tools">🧰 Εργαλεία</button>
 </div>
 
 <div class="wrap">
@@ -541,6 +560,56 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
     </div>
   </div>
 </div>
+</div>
+
+<!-- ============================ TOOLS ============================ -->
+<div class="tabpane" id="tab-tools">
+  <div class="card" id="sensorCard" style="display:none">
+    <h2>📱 Αισθητήρες</h2>
+    <div class="hint">Το αλφάδι, το κλισίμετρο & το νήμα στάθμης χρειάζονται τους αισθητήρες κλίσης της συσκευής (κινητό/τάμπλετ). Πάτα ενεργοποίηση & δώσε άδεια.</div>
+    <div class="btnrow"><button class="btn" id="sensorBtn">🔓 Ενεργοποίηση αισθητήρων</button><span class="small" id="sensorState" style="align-self:center">— ανενεργοί —</span></div>
+  </div>
+  <div class="grid" id="toolsGrid" style="grid-template-columns:1fr 1fr">
+    <div class="card">
+      <h2>🫧 Ψηφιακό Αλφάδι</h2>
+      <div class="hint">Ακούμπησε τη συσκευή στην επιφάνεια. Η φυσαλίδα κεντράρεται όταν είναι απόλυτα αλφάδι. Πράσινο = ίσιο (≤0,3°).</div>
+      <canvas id="levelCv" width="600" height="360"></canvas>
+      <div class="kpi" style="margin-top:8px">
+        <div class="box"><div class="v" id="levelX">0,0°</div><div class="l">κλίση Χ (αριστ.-δεξ.)</div></div>
+        <div class="box"><div class="v" id="levelY">0,0°</div><div class="l">κλίση Υ (μπρος-πίσω)</div></div>
+      </div>
+      <div class="btnrow"><button class="btn sec mini" id="levelCal">🎯 Μηδενισμός (calibrate)</button><button class="btn sec mini" id="levelCalR">↺ Επαναφορά</button></div>
+    </div>
+    <div class="card">
+      <h2>📐 Κλισίμετρο / Γωνία</h2>
+      <div class="hint">Βάλε την ακμή της συσκευής πάνω στην επιφάνεια/κλίση. Δείχνει τη γωνία από το οριζόντιο (0°) ή το κατακόρυφο (90°) & την κλίση σε %.</div>
+      <canvas id="angleCv" width="600" height="360"></canvas>
+      <div class="kpi" style="margin-top:8px">
+        <div class="box"><div class="v" id="angleDeg">0,0°</div><div class="l">γωνία</div></div>
+        <div class="box"><div class="v" id="anglePct">0%</div><div class="l">κλίση (ρύση)</div></div>
+      </div>
+      <div class="btnrow"><button class="btn sec mini" id="angleHold">⏸️ Πάγωμα ένδειξης</button><button class="btn sec mini" id="angleCal">🎯 Μηδενισμός</button></div>
+    </div>
+    <div class="card">
+      <h2>🧵 Νήμα Στάθμης (κατακόρυφο)</h2>
+      <div class="hint">Κράτα τη συσκευή όρθια δίπλα στον τοίχο. Το «νήμα» δείχνει την πραγματική κατακόρυφο — σύγκρινέ την με τον τοίχο για να δεις αν «φεύγει».</div>
+      <canvas id="plumbCv" width="600" height="360"></canvas>
+      <div class="kpi" style="margin-top:8px">
+        <div class="box"><div class="v" id="plumbDeg">0,0°</div><div class="l">απόκλιση από κατακόρυφο</div></div>
+        <div class="box"><div class="v" id="plumbMm">0 mm/m</div><div class="l">φυγή</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>📏 Ψηφιακό Μέτρο (χάρακας οθόνης)</h2>
+      <div class="hint">Βαθμονόμησε μία φορά: ακούμπησε μια <b>τραπεζική/ταυτότητα κάρτα</b> (πλάτος 8,56 cm) στην οθόνη και σύρε τον ρυθμιστή ώσπου οι δύο γραμμές να ταιριάξουν στα άκρα της. Μετά ο χάρακας δείχνει πραγματικά cm.</div>
+      <div class="row"><div><label>Βαθμονόμηση (px ανά cm): <span id="dpcmv">37,8</span></label>
+        <input id="dpcm" type="range" min="20" max="90" value="37.8" step="0.1"></div></div>
+      <div id="cardGuide" class="small" style="margin:-4px 0 8px">Πλάτος αναφοράς κάρτας: <b><span id="cardW">8,56</span> cm</b> → η μπλε ζώνη πρέπει να έχει ακριβώς αυτό το πλάτος όταν βάλεις την κάρτα.</div>
+      <canvas id="rulerCv" width="600" height="150"></canvas>
+      <div class="small" style="margin-top:6px">💡 Η ακρίβεια εξαρτάται από τη σωστή βαθμονόμηση ανά συσκευή· αποθηκεύεται αυτόματα.</div>
+    </div>
+  </div>
+</div>
 
 </div>
 
@@ -570,6 +639,7 @@ document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
   if(b.dataset.tab==='iso') drawIso();
   if(b.dataset.tab==='screed') calcScreed();
   if(b.dataset.tab==='gypsum') calcGypsum();
+  if(b.dataset.tab==='tools') initTools();
 });
 function segInit(segId,attr,cb){document.querySelectorAll('#'+segId+' button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#'+segId+' button').forEach(x=>x.classList.remove('active'));b.classList.add('active');cb(b.dataset[attr]);});}
@@ -1673,6 +1743,116 @@ marbleItems.push({desc:'Ποδιά παραθύρου',l:120,w:25,n:3},{desc:'Σ
 renderMarble();calcGypsum();
 window.addEventListener('resize',()=>{clearTimeout(window._rt);window._rt=setTimeout(()=>{fitAndDraw();calcWalls();drawIso();drawGypsumViz();drawScreedViz();},150);});
 fitAndDraw();
+
+/* ================= ΨΗΦΙΑΚΑ ΕΡΓΑΛΕΙΑ (μέτρο/αλφάδι/γωνιά/νήμα) ================= */
+(function(){
+  const D=x=>document.getElementById(x), rad=Math.PI/180, gfmt=(n,d)=>Number(n).toFixed(d==null?1:d).replace('.',',');
+  let beta=0,gamma=0,haveSensor=false,started=false,raf=null,angleFrozen=false,angleFreezeVal={a:0,p:0};
+  let calLX=0,calLY=0,calA=0;
+  try{calLX=+localStorage.getItem('mastoras_calLX')||0;calLY=+localStorage.getItem('mastoras_calLY')||0;calA=+localStorage.getItem('mastoras_calA')||0;}catch(e){}
+  let dpcm=37.8; try{dpcm=+localStorage.getItem('mastoras_dpcm')||37.8;}catch(e){}
+
+  function onOrient(e){ if(e.beta==null&&e.gamma==null) return; haveSensor=true; beta=e.beta||0; gamma=e.gamma||0;
+    const st=D('sensorState'); if(st){st.textContent='● ενεργοί'; st.style.color='var(--ok)';} }
+  function startSensors(){
+    if(typeof DeviceOrientationEvent==='undefined'){const st=D('sensorState');if(st){st.textContent='μη διαθέσιμοι σε αυτή τη συσκευή (χρησιμοποίησε το μέτρο)';st.style.color='var(--warn)';}return;}
+    const add=()=>{window.addEventListener('deviceorientation',onOrient,true);started=true;};
+    if(typeof DeviceOrientationEvent.requestPermission==='function'){
+      DeviceOrientationEvent.requestPermission().then(p=>{ if(p==='granted'){add();} else {const st=D('sensorState');if(st){st.textContent='άρνηση άδειας';st.style.color='var(--bad)';}} }).catch(()=>{});
+    } else { add(); }
+  }
+  function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v)||'#888';}
+
+  function drawLevel(){ const cv=D('levelCv'); if(!cv)return; const ctx=cv.getContext('2d');
+    const w=cv.parentElement.clientWidth-28; cv.width=Math.max(260,w); cv.height=Math.round(cv.width*0.62);
+    const W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=Math.min(W,H)*0.42; ctx.clearRect(0,0,W,H);
+    const gx=gamma-calLX, gy=beta-calLY, ok=Math.hypot(gx,gy)<=0.3;
+    ctx.strokeStyle=cssv('--line');ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.stroke();
+    ctx.beginPath();ctx.arc(cx,cy,R*0.5,0,7);ctx.stroke();
+    ctx.beginPath();ctx.arc(cx,cy,14,0,7);ctx.strokeStyle=ok?'var(--ok)':cssv('--accent');ctx.lineWidth=2;ctx.stroke();
+    ctx.strokeStyle=cssv('--line');ctx.beginPath();ctx.moveTo(cx-R,cy);ctx.lineTo(cx+R,cy);ctx.moveTo(cx,cy-R);ctx.lineTo(cx,cy+R);ctx.stroke();
+    const px=Math.max(-1,Math.min(1,gx/20)), py=Math.max(-1,Math.min(1,gy/20));
+    const bx=cx+px*R, by=cy+py*R; const grd=ctx.createRadialGradient(bx-6,by-6,2,bx,by,20);
+    grd.addColorStop(0,ok?'#8ef0b0':'#ffd9a0');grd.addColorStop(1,ok?'#2f855a':cssv('--accent'));
+    ctx.fillStyle=grd;ctx.beginPath();ctx.arc(bx,by,18,0,7);ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.25)';ctx.lineWidth=1;ctx.stroke();
+    if(!haveSensor){ctx.fillStyle=cssv('--muted');ctx.font='13px system-ui';ctx.textAlign='center';ctx.fillText('Ενεργοποίησε τους αισθητήρες ↑',cx,H-10);}
+    D('levelX').textContent=gfmt(gx)+'°'; D('levelY').textContent=gfmt(gy)+'°';
+    D('levelX').style.color=Math.abs(gx)<=0.3?'var(--ok)':''; D('levelY').style.color=Math.abs(gy)<=0.3?'var(--ok)':'';
+  }
+  function drawAngle(){ const cv=D('angleCv'); if(!cv)return; const ctx=cv.getContext('2d');
+    const w=cv.parentElement.clientWidth-28; cv.width=Math.max(260,w); cv.height=Math.round(cv.width*0.62);
+    const W=cv.width,H=cv.height; ctx.clearRect(0,0,W,H);
+    let ang,pct;
+    if(angleFrozen){ang=angleFreezeVal.a;pct=angleFreezeVal.p;}
+    else{ const tilt=Math.acos(Math.max(-1,Math.min(1,Math.cos((beta-calA)*rad)*Math.cos(gamma*rad))))/rad;
+      ang=tilt; pct=Math.tan(tilt*rad)*100; angleFreezeVal={a:ang,p:pct}; }
+    const ox=W*0.5,oy=H*0.82,armR=Math.min(W,H)*0.72;
+    ctx.strokeStyle=cssv('--line');ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox-armR,oy);ctx.lineTo(ox+armR*0.5,oy);ctx.stroke();
+    for(let a=0;a<=90;a+=15){const rr=a*rad;ctx.strokeStyle=cssv('--line');ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+Math.cos(rr)*armR*0.28,oy-Math.sin(rr)*armR*0.28);ctx.stroke();}
+    const ar=ang*rad; ctx.strokeStyle=cssv('--accent');ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+Math.cos(ar)*armR,oy-Math.sin(ar)*armR);ctx.stroke();
+    ctx.fillStyle=cssv('--accent');ctx.beginPath();ctx.arc(ox,oy,6,0,7);ctx.fill();
+    ctx.fillStyle=cssv('--ink');ctx.font='bold 26px system-ui';ctx.textAlign='center';ctx.fillText(gfmt(ang)+'°',ox,oy-armR*0.55);
+    if(angleFrozen){ctx.fillStyle=cssv('--accent2');ctx.font='12px system-ui';ctx.fillText('⏸️ παγωμένο',ox,oy-armR*0.55+18);}
+    if(!haveSensor){ctx.fillStyle=cssv('--muted');ctx.font='13px system-ui';ctx.fillText('Ενεργοποίησε τους αισθητήρες ↑',ox,H-8);}
+    D('angleDeg').textContent=gfmt(ang)+'°'; D('anglePct').textContent=Math.round(pct)+'%';
+  }
+  function drawPlumb(){ const cv=D('plumbCv'); if(!cv)return; const ctx=cv.getContext('2d');
+    const w=cv.parentElement.clientWidth-28; cv.width=Math.max(260,w); cv.height=Math.round(cv.width*0.62);
+    const W=cv.width,H=cv.height,cx=W/2; ctx.clearRect(0,0,W,H);
+    ctx.fillStyle=cssv('--room');ctx.fillRect(W*0.5,0,W*0.5,H);
+    ctx.strokeStyle=cssv('--line');ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,H);ctx.stroke();
+    const roll=gamma, dev=Math.hypot(gamma,beta-90);
+    const topx=cx, topy=10, len=H-40, ex=topx+Math.sin(roll*rad)*len, ey=topy+Math.cos(roll*rad)*len;
+    ctx.strokeStyle=cssv('--accent');ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(topx,topy);ctx.lineTo(ex,ey);ctx.stroke();
+    ctx.fillStyle=cssv('--accent');ctx.beginPath();ctx.moveTo(ex-8,ey);ctx.lineTo(ex+8,ey);ctx.lineTo(ex,ey+16);ctx.closePath();ctx.fill();
+    ctx.fillStyle=cssv('--muted');ctx.font='11px system-ui';ctx.textAlign='left';ctx.fillText('τοίχος (πλαίσιο)',W*0.5+6,16);
+    ctx.textAlign='center';ctx.fillStyle=cssv('--ink');ctx.fillText('νήμα',topx,topy-1);
+    if(!haveSensor){ctx.fillStyle=cssv('--muted');ctx.fillText('Ενεργοποίησε τους αισθητήρες ↑',cx,H-8);}
+    D('plumbDeg').textContent=gfmt(Math.abs(roll))+'°';
+    D('plumbMm').textContent=Math.round(Math.tan(Math.abs(roll)*rad)*1000)+' mm/m';
+  }
+  function drawRuler(){ const cv=D('rulerCv'); if(!cv)return; const ctx=cv.getContext('2d');
+    const w=cv.parentElement.clientWidth-28; cv.width=Math.max(260,w); cv.height=150;
+    const W=cv.width,H=cv.height; ctx.clearRect(0,0,W,H);
+    ctx.fillStyle=cssv('--panel');ctx.fillRect(0,0,W,H);
+    // reference card band (8.56cm) in blue
+    const cardW=8.56*dpcm; ctx.fillStyle='rgba(43,108,176,.14)';ctx.fillRect(8,H-46,cardW,38);
+    ctx.strokeStyle=cssv('--accent2');ctx.setLineDash([4,3]);ctx.strokeRect(8,H-46,cardW,38);ctx.setLineDash([]);
+    ctx.fillStyle=cssv('--accent2');ctx.font='11px system-ui';ctx.textAlign='center';ctx.fillText('κάρτα 8,56 cm',8+cardW/2,H-52);
+    // ruler ticks (top edge)
+    ctx.strokeStyle=cssv('--ink');ctx.fillStyle=cssv('--ink');ctx.textAlign='center';ctx.font='10px system-ui';
+    let cm=0; for(let x=8;x<W-4;x+=dpcm/10){ const isCm=Math.abs((x-8)%dpcm)<0.5||Math.round((x-8)/(dpcm/10))%10===0;
+      const isHalf=Math.round((x-8)/(dpcm/10))%5===0; const hh=isCm?26:(isHalf?16:9);
+      ctx.beginPath();ctx.moveTo(x,4);ctx.lineTo(x,4+hh);ctx.lineWidth=isCm?1.4:0.8;ctx.stroke();
+      if(isCm){ctx.fillText(cm,x,4+hh+11);cm++;} }
+    ctx.strokeStyle=cssv('--line');ctx.beginPath();ctx.moveTo(0,4);ctx.lineTo(W,4);ctx.stroke();
+  }
+  function loop(){ drawLevel();drawAngle();drawPlumb(); raf=requestAnimationFrame(loop); }
+
+  window.initTools=function(){
+    const sc=D('sensorCard'); if(sc) sc.style.display=(typeof DeviceOrientationEvent!=='undefined')?'block':'block';
+    if(!started){ const btn=D('sensorBtn'); if(btn&&!btn._w){btn._w=1;btn.onclick=startSensors;}
+      // Android/desktop: try auto-attach (no permission needed)
+      if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission!=='function'){ window.addEventListener('deviceorientation',onOrient,true); started=true; } }
+    // wiring (once)
+    if(!window._toolsWired){ window._toolsWired=1;
+      const dp=D('dpcm'); if(dp){ dp.value=dpcm; D('dpcmv').textContent=gfmt(dpcm); dp.addEventListener('input',()=>{dpcm=+dp.value;D('dpcmv').textContent=gfmt(dpcm);try{localStorage.setItem('mastoras_dpcm',dpcm);}catch(e){}drawRuler();}); }
+      const lc=D('levelCal'); if(lc) lc.onclick=()=>{calLX=gamma;calLY=beta;try{localStorage.setItem('mastoras_calLX',calLX);localStorage.setItem('mastoras_calLY',calLY);}catch(e){}};
+      const lcr=D('levelCalR'); if(lcr) lcr.onclick=()=>{calLX=0;calLY=0;try{localStorage.removeItem('mastoras_calLX');localStorage.removeItem('mastoras_calLY');}catch(e){}};
+      const ah=D('angleHold'); if(ah) ah.onclick=()=>{angleFrozen=!angleFrozen;ah.innerHTML=angleFrozen?'▶️ Συνέχεια':'⏸️ Πάγωμα ένδειξης';};
+      const ac=D('angleCal'); if(ac) ac.onclick=()=>{calA=beta;try{localStorage.setItem('mastoras_calA',calA);}catch(e){}};
+    }
+    drawRuler();
+    if(!raf) loop();
+  };
+
+  // Landscape hint (μία φορά, σε portrait φορητή συσκευή)
+  function landscapeHint(){ try{ const portrait=window.matchMedia('(orientation:portrait)').matches, coarse=window.matchMedia('(pointer:coarse)').matches;
+    if(portrait&&coarse&&!sessionStorage.getItem('mastoras_lhint')){ document.body.classList.add('landscape-hint'); setTimeout(()=>document.body.classList.remove('landscape-hint'),4500); sessionStorage.setItem('mastoras_lhint','1'); } }catch(e){} }
+  window.addEventListener('orientationchange',()=>{ setTimeout(()=>{ if(typeof fitAndDraw==='function')fitAndDraw(); if(typeof calcWalls==='function')calcWalls(); if(typeof drawIso==='function')drawIso(); const tp=document.querySelector('#tab-tools.active'); if(tp&&window.initTools)window.initTools(); },300); });
+  landscapeHint();
+})();
 </script>
 </body>
 </html>
