@@ -653,7 +653,10 @@ const round=(v,s=0.5)=>Math.round(v/s)*s;
 try{if('serviceWorker' in navigator && location.protocol.indexOf('http')===0)navigator.serviceWorker.register('sw.js').catch(function(){});}catch(e){}
 
 /* ---- FULLSCREEN ---- */
-if($('fsBtn'))$('fsBtn').onclick=()=>{try{const el=document.documentElement;if(!document.fullscreenElement&&!document.webkitFullscreenElement){(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);}else{(document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document);}}catch(e){}};
+function fsOn(){return !!(document.fullscreenElement||document.webkitFullscreenElement);}
+function enterFS(){try{const el=document.documentElement;if(!fsOn()){const p=(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);if(p&&p.catch)p.catch(function(){});}}catch(e){}}
+function exitFS(){try{if(fsOn()){const p=(document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document);if(p&&p.catch)p.catch(function(){});}}catch(e){}}
+if($('fsBtn'))$('fsBtn').onclick=()=>{fsOn()?exitFS():enterFS();};
 
 /* ---- TABS ---- */
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
@@ -661,7 +664,7 @@ document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
   b.classList.add('active');
   document.querySelectorAll('.tabpane').forEach(p=>p.classList.remove('active'));
   $('tab-'+b.dataset.tab).classList.add('active');
-  if(b.dataset.tab!=='tools' && typeof window.stopToolsCameras==='function') window.stopToolsCameras();
+  if(b.dataset.tab==='tools'){ enterFS(); } else { if(typeof window.stopToolsCameras==='function') window.stopToolsCameras(); if(fsOn()) exitFS(); }
   if(b.dataset.tab==='tiles') fitAndDraw();
   if(b.dataset.tab==='walls') calcWalls();
   if(b.dataset.tab==='iso') drawIso();
