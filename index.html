@@ -79,6 +79,14 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
   .camwrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
   .camwrap canvas{position:absolute;inset:0;width:100%;height:100%;border:none;border-radius:0;background:transparent;touch-action:none}
   .camwrap.empty::after{content:"📷 Πάτα «Έναρξη κάμερας»";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;opacity:.8}
+  /* Πλήρης οθόνη ανά εργαλείο (εστίαση) */
+  .toolFS{font-size:15px;line-height:1}
+  .card:fullscreen{width:100vw;height:100vh;max-width:none;margin:0;border-radius:0;overflow:auto;background:var(--bg);display:flex;flex-direction:column;justify-content:center;padding:20px max(16px,calc((100vw - 900px)/2))}
+  .card:-webkit-full-screen{width:100vw;height:100vh;margin:0;border-radius:0;overflow:auto;background:var(--bg);display:flex;flex-direction:column;justify-content:center;padding:20px 16px}
+  .card:fullscreen h2{font-size:16px}
+  .card:fullscreen canvas{max-height:74vh}
+  .card:fullscreen .camwrap{max-height:74vh;aspect-ratio:auto;flex:1;min-height:50vh}
+  .card:fullscreen .kpi .box .v{font-size:26px}
   .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
   .legend span{display:inline-flex;align-items:center;gap:5px}
   .sw{width:14px;height:14px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.2)}
@@ -575,7 +583,7 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
   </div>
   <div class="grid" id="toolsGrid" style="grid-template-columns:1fr 1fr">
     <div class="card">
-      <h2>🫧 Ψηφιακό Αλφάδι</h2>
+      <h2><span>🫧 Ψηφιακό Αλφάδι</span><button class="btn sec mini toolFS" title="Πλήρης οθόνη εργαλείου">⛶</button></h2>
       <div class="hint">Ακούμπησε τη συσκευή στην επιφάνεια. Η φυσαλίδα κεντράρεται όταν είναι απόλυτα αλφάδι. Πράσινο = ίσιο (≤0,3°).</div>
       <canvas id="levelCv" width="600" height="360"></canvas>
       <div class="kpi" style="margin-top:8px">
@@ -585,7 +593,7 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
       <div class="btnrow"><button class="btn sec mini" id="levelCal">🎯 Μηδενισμός (calibrate)</button><button class="btn sec mini" id="levelCalR">↺ Επαναφορά</button></div>
     </div>
     <div class="card">
-      <h2>📐 Κλισίμετρο / Γωνία</h2>
+      <h2><span>📐 Κλισίμετρο / Γωνία</span><button class="btn sec mini toolFS" title="Πλήρης οθόνη εργαλείου">⛶</button></h2>
       <div class="hint">Βάλε την ακμή της συσκευής πάνω στην επιφάνεια/κλίση. Δείχνει τη γωνία από το οριζόντιο (0°) ή το κατακόρυφο (90°) & την κλίση σε %.</div>
       <canvas id="angleCv" width="600" height="360"></canvas>
       <div class="kpi" style="margin-top:8px">
@@ -595,7 +603,7 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
       <div class="btnrow"><button class="btn sec mini" id="angleHold">⏸️ Πάγωμα ένδειξης</button><button class="btn sec mini" id="angleCal">🎯 Μηδενισμός</button></div>
     </div>
     <div class="card">
-      <h2>🧵 Νήμα Στάθμης (κατακόρυφο)</h2>
+      <h2><span>🧵 Νήμα Στάθμης (κατακόρυφο)</span><button class="btn sec mini toolFS" title="Πλήρης οθόνη εργαλείου">⛶</button></h2>
       <div class="hint">Κράτα τη συσκευή όρθια δίπλα στον τοίχο. Το «νήμα» δείχνει την πραγματική κατακόρυφο — σύγκρινέ την με τον τοίχο για να δεις αν «φεύγει».</div>
       <canvas id="plumbCv" width="600" height="360"></canvas>
       <div class="kpi" style="margin-top:8px">
@@ -604,7 +612,7 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
       </div>
     </div>
     <div class="card">
-      <h2>📏 Ψηφιακό Μέτρο (χάρακας οθόνης)</h2>
+      <h2><span>📏 Ψηφιακό Μέτρο (χάρακας οθόνης)</span><button class="btn sec mini toolFS" title="Πλήρης οθόνη εργαλείου">⛶</button></h2>
       <div class="hint">Βαθμονόμησε μία φορά: ακούμπησε μια <b>τραπεζική/ταυτότητα κάρτα</b> (πλάτος 8,56 cm) στην οθόνη και σύρε τον ρυθμιστή ώσπου οι δύο γραμμές να ταιριάξουν στα άκρα της. Μετά ο χάρακας δείχνει πραγματικά cm.</div>
       <div class="row"><div><label>Βαθμονόμηση (px ανά cm): <span id="dpcmv">37,8</span></label>
         <input id="dpcm" type="range" min="20" max="90" value="37.8" step="0.1"></div></div>
@@ -615,13 +623,13 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
   </div>
   <div class="grid" id="camGrid" style="grid-template-columns:1fr 1fr">
     <div class="card">
-      <h2>📷 Αλφάδι με Κάμερα</h2>
+      <h2><span>📷 Αλφάδι με Κάμερα</span><button class="btn sec mini toolFS" title="Πλήρης οθόνη εργαλείου">⛶</button></h2>
       <div class="hint">Ζωντανή κάμερα με ορίζοντα/φυσαλίδα από πάνω. Η πράσινη γραμμή μένει πάντα οριζόντια — ευθυγράμμισε τον πήχη/πλακάκι μαζί της. Γίνεται πράσινο όταν είσαι αλφάδι.</div>
       <div class="btnrow"><button class="btn" id="camLevelStart">📷 Έναρξη κάμερας</button><button class="btn sec mini" id="camLevelStop">⏹️ Στοπ</button><span class="small" id="camLevelDeg" style="align-self:center">–</span></div>
       <div class="camwrap empty" id="camLevelWrap"><video id="camLevelVid" playsinline muted></video><canvas id="camLevelOv"></canvas></div>
     </div>
     <div class="card">
-      <h2>📷 Μέτρο με Κάμερα (αναφορά)</h2>
+      <h2><span>📷 Μέτρο με Κάμερα (αναφορά)</span><button class="btn sec mini toolFS" title="Πλήρης οθόνη εργαλείου">⛶</button></h2>
       <div class="hint"><b>1)</b> Έναρξη → <b>«📸 Πάγωμα»</b>. <b>2)</b> Σε λειτουργία «Αναφορά» σύρε τα 2 μπλε άκρα πάνω σε γνωστό αντικείμενο & γράψε το μήκος του. <b>3)</b> «Μέτρηση» → σύρε τα 2 πορτοκαλί άκρα σε ό,τι θες. Κράτα την κάμερα κάθετα & στο ίδιο επίπεδο για ακρίβεια.</div>
       <div class="btnrow"><button class="btn" id="camMeasStart">📷 Κάμερα</button><button class="btn sec" id="camMeasFreeze">📸 Πάγωμα</button><button class="btn sec mini" id="camMeasReset">↺ Reset</button></div>
       <div class="row" style="margin-top:6px">
@@ -656,7 +664,11 @@ try{if('serviceWorker' in navigator && location.protocol.indexOf('http')===0)nav
 function fsOn(){return !!(document.fullscreenElement||document.webkitFullscreenElement);}
 function enterFS(){try{const el=document.documentElement;if(!fsOn()){const p=(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);if(p&&p.catch)p.catch(function(){});}}catch(e){}}
 function exitFS(){try{if(fsOn()){const p=(document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document);if(p&&p.catch)p.catch(function(){});}}catch(e){}}
+function fsCard(el){try{if(!el)return;if(fsOn()&&document.fullscreenElement===el){exitFS();return;}const p=(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);if(p&&p.catch)p.catch(function(){});}catch(e){}}
+window.fsCard=fsCard;
 if($('fsBtn'))$('fsBtn').onclick=()=>{fsOn()?exitFS():enterFS();};
+document.addEventListener('fullscreenchange',()=>{try{if(window._toolsRedraw)window._toolsRedraw();}catch(e){}});
+document.addEventListener('webkitfullscreenchange',()=>{try{if(window._toolsRedraw)window._toolsRedraw();}catch(e){}});
 
 /* ---- TABS ---- */
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
@@ -664,7 +676,7 @@ document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
   b.classList.add('active');
   document.querySelectorAll('.tabpane').forEach(p=>p.classList.remove('active'));
   $('tab-'+b.dataset.tab).classList.add('active');
-  if(b.dataset.tab==='tools'){ enterFS(); } else { if(typeof window.stopToolsCameras==='function') window.stopToolsCameras(); if(fsOn()) exitFS(); }
+  if(b.dataset.tab!=='tools'){ if(typeof window.stopToolsCameras==='function') window.stopToolsCameras(); if(fsOn()) exitFS(); }
   if(b.dataset.tab==='tiles') fitAndDraw();
   if(b.dataset.tab==='walls') calcWalls();
   if(b.dataset.tab==='iso') drawIso();
@@ -1929,6 +1941,9 @@ fitAndDraw();
       const cmr=D('camMeasReset'); if(cmr) cmr.onclick=()=>{refPts=[[0.22,0.74],[0.5,0.74]];tgtPts=[[0.3,0.42],[0.72,0.42]];redrawMeas();};
       const rl=D('refLen'); if(rl) rl.addEventListener('input',redrawMeas);
       document.querySelectorAll('#camMeasMode button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#camMeasMode button').forEach(x=>x.classList.remove('active'));b.classList.add('active');mMode=b.dataset.k;});
+      // fullscreen ανά εργαλείο (⛶ σε κάθε κάρτα)
+      document.querySelectorAll('#tab-tools .toolFS').forEach(btn=>btn.onclick=()=>{ const card=btn.closest('.card'); if(window.fsCard)window.fsCard(card); });
+      window._toolsRedraw=function(){ try{drawRuler();}catch(e){} try{redrawMeas();}catch(e){} };
       const mc=D('camMeasCv');
       if(mc){ mc.addEventListener('pointerdown',e=>{ if(!mFrozen)return; const p=measPtr(e); const all=[['ref',0],['ref',1],['tgt',0],['tgt',1]]; let best=null,bd=1e9;
           all.forEach(([k,i])=>{const pts=k==='ref'?refPts:tgtPts;const d=(pts[i][0]-p[0])**2+(pts[i][1]-p[1])**2;if(d<bd){bd=d;best=[k,i];}});
