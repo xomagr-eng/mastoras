@@ -613,12 +613,14 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
     </div>
     <div class="card">
       <h2><span>📏 Ψηφιακό Μέτρο (χάρακας οθόνης)</span><button class="btn sec mini toolFS" title="Πλήρης οθόνη εργαλείου">⛶</button></h2>
-      <div class="hint">Βαθμονόμησε μία φορά: ακούμπησε μια <b>τραπεζική/ταυτότητα κάρτα</b> (πλάτος 8,56 cm) στην οθόνη και σύρε τον ρυθμιστή ώσπου οι δύο γραμμές να ταιριάξουν στα άκρα της. Μετά ο χάρακας δείχνει πραγματικά cm.</div>
+      <div class="hint"><b>Πρώτα βαθμονόμησε (μία φορά):</b> ακούμπησε μια <b>τραπεζική/ταυτότητα κάρτα</b> (8,56 cm) στην οθόνη και σύρε τον ρυθμιστή ώσπου η <b>μπλε ζώνη</b> να ταιριάξει ακριβώς με το πλάτος της κάρτας. <b>Μετά μετράς:</b> σύρε τους <b>2 κόκκινους δείκτες</b> στα άκρα ενός αντικειμένου που ακουμπάς στην οθόνη — δείχνει τα cm.</div>
       <div class="row"><div><label>Βαθμονόμηση (px ανά cm): <span id="dpcmv">37,8</span></label>
         <input id="dpcm" type="range" min="20" max="90" value="37.8" step="0.1"></div></div>
       <div id="cardGuide" class="small" style="margin:-4px 0 8px">Πλάτος αναφοράς κάρτας: <b><span id="cardW">8,56</span> cm</b> → η μπλε ζώνη πρέπει να έχει ακριβώς αυτό το πλάτος όταν βάλεις την κάρτα.</div>
-      <canvas id="rulerCv" width="600" height="150"></canvas>
-      <div class="small" style="margin-top:6px">💡 Η ακρίβεια εξαρτάται από τη σωστή βαθμονόμηση ανά συσκευή· αποθηκεύεται αυτόματα.</div>
+      <canvas id="rulerCv" width="600" height="190"></canvas>
+      <div class="kpi" style="margin-top:8px"><div class="box"><div class="v" id="rulerOut">–</div><div class="l">απόσταση κόκκινων δεικτών</div></div>
+        <div class="box"><div class="v" id="rulerMax">–</div><div class="l">συνολικό πλάτος οθόνης</div></div></div>
+      <div class="small" style="margin-top:6px">💡 Μετράει μόνο αντικείμενα που χωρούν στην οθόνη. Για μεγάλα, χρήσιμο είναι το «📷 Μέτρο με Κάμερα». Η βαθμονόμηση αποθηκεύεται.</div>
     </div>
   </div>
   <div class="grid" id="camGrid" style="grid-template-columns:1fr 1fr">
@@ -632,6 +634,7 @@ var BuildLog=require("./lib/build-log");var Epsilon=require("./lib/epsilon");var
       <h2><span>📷 Μέτρο με Κάμερα (αναφορά)</span><button class="btn sec mini toolFS" title="Πλήρης οθόνη εργαλείου">⛶</button></h2>
       <div class="hint"><b>1)</b> Έναρξη → <b>«📸 Πάγωμα»</b>. <b>2)</b> Σε λειτουργία «Αναφορά» σύρε τα 2 μπλε άκρα πάνω σε γνωστό αντικείμενο & γράψε το μήκος του. <b>3)</b> «Μέτρηση» → σύρε τα 2 πορτοκαλί άκρα σε ό,τι θες. Κράτα την κάμερα κάθετα & στο ίδιο επίπεδο για ακρίβεια.</div>
       <div class="btnrow"><button class="btn" id="camMeasStart">📷 Κάμερα</button><button class="btn sec" id="camMeasFreeze">📸 Πάγωμα</button><button class="btn sec mini" id="camMeasReset">↺ Reset</button></div>
+      <div class="small" id="camMeasStatus" style="margin-top:5px;color:var(--accent2);font-weight:600">1) Πάτα «📷 Κάμερα».</div>
       <div class="row" style="margin-top:6px">
         <div><label>Μήκος αναφοράς (cm)</label><input id="refLen" type="number" step="0.1" value="8.56"></div>
         <div><label>Τι σύρεις τώρα</label><div class="seg" id="camMeasMode"><button data-k="ref" class="active">🔵 Αναφορά</button><button data-k="target">🟠 Μέτρηση</button></div></div>
@@ -1855,14 +1858,16 @@ fitAndDraw();
     D('plumbDeg').textContent=gfmt(Math.abs(roll))+'°';
     D('plumbMm').textContent=Math.round(Math.tan(Math.abs(roll)*rad)*1000)+' mm/m';
   }
+  let rm1=null,rm2=null,rDrag=null; // θέσεις κόκκινων δεικτών (px)
   function drawRuler(){ const cv=D('rulerCv'); if(!cv)return; const ctx=cv.getContext('2d');
-    const w=cv.parentElement.clientWidth-28; cv.width=Math.max(260,w); cv.height=150;
+    const w=cv.parentElement.clientWidth-28; cv.width=Math.max(260,w); cv.height=190;
     const W=cv.width,H=cv.height; ctx.clearRect(0,0,W,H);
     ctx.fillStyle=cssv('--panel');ctx.fillRect(0,0,W,H);
+    if(rm1==null){rm1=W*0.25;rm2=W*0.6;}
     // reference card band (8.56cm) in blue
-    const cardW=8.56*dpcm; ctx.fillStyle='rgba(43,108,176,.14)';ctx.fillRect(8,H-46,cardW,38);
-    ctx.strokeStyle=cssv('--accent2');ctx.setLineDash([4,3]);ctx.strokeRect(8,H-46,cardW,38);ctx.setLineDash([]);
-    ctx.fillStyle=cssv('--accent2');ctx.font='11px system-ui';ctx.textAlign='center';ctx.fillText('κάρτα 8,56 cm',8+cardW/2,H-52);
+    const cardW=8.56*dpcm; ctx.fillStyle='rgba(43,108,176,.14)';ctx.fillRect(8,H-40,cardW,32);
+    ctx.strokeStyle=cssv('--accent2');ctx.setLineDash([4,3]);ctx.strokeRect(8,H-40,cardW,32);ctx.setLineDash([]);
+    ctx.fillStyle=cssv('--accent2');ctx.font='11px system-ui';ctx.textAlign='center';ctx.fillText('κάρτα 8,56 cm (βαθμονόμηση)',8+cardW/2,H-46);
     // ruler ticks (top edge)
     ctx.strokeStyle=cssv('--ink');ctx.fillStyle=cssv('--ink');ctx.textAlign='center';ctx.font='10px system-ui';
     let cm=0; for(let x=8;x<W-4;x+=dpcm/10){ const isCm=Math.abs((x-8)%dpcm)<0.5||Math.round((x-8)/(dpcm/10))%10===0;
@@ -1870,7 +1875,19 @@ fitAndDraw();
       ctx.beginPath();ctx.moveTo(x,4);ctx.lineTo(x,4+hh);ctx.lineWidth=isCm?1.4:0.8;ctx.stroke();
       if(isCm){ctx.fillText(cm,x,4+hh+11);cm++;} }
     ctx.strokeStyle=cssv('--line');ctx.beginPath();ctx.moveTo(0,4);ctx.lineTo(W,4);ctx.stroke();
+    // κόκκινοι δείκτες μέτρησης
+    [rm1,rm2].forEach((mx,i)=>{ ctx.strokeStyle='#e53935';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(mx,44);ctx.lineTo(mx,H-8);ctx.stroke();
+      ctx.fillStyle='#e53935';ctx.beginPath();ctx.arc(mx,H-24,10,0,7);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+      ctx.fillStyle='#fff';ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.fillText(i+1,mx,H-20); });
+    const distcm=Math.abs(rm2-rm1)/dpcm;
+    // γραμμή διάστασης
+    const y=58; ctx.strokeStyle='#e53935';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(Math.min(rm1,rm2),y);ctx.lineTo(Math.max(rm1,rm2),y);ctx.stroke();
+    ctx.fillStyle=cssv('--panel');const lbl=gfmt(distcm)+' cm';ctx.font='bold 14px system-ui';const tw=ctx.measureText(lbl).width+10;
+    ctx.fillRect((rm1+rm2)/2-tw/2,y-20,tw,18);ctx.fillStyle='#e53935';ctx.fillText(lbl,(rm1+rm2)/2,y-6);
+    const ro=D('rulerOut'); if(ro)ro.textContent=(distcm>=100?gfmt(distcm/100,2)+' m':gfmt(distcm)+' cm');
+    const rmax=D('rulerMax'); if(rmax)rmax.textContent=gfmt((W-16)/dpcm)+' cm';
   }
+  function rulerPtr(e){ const cv=D('rulerCv'),r=cv.getBoundingClientRect(); return (e.clientX-r.left)/r.width*cv.width; }
   /* ---- ΚΑΜΕΡΑ: αλφάδι & μέτρο ---- */
   const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
   function ensureSensors(){ if(started)return; if(typeof DeviceOrientationEvent==='undefined')return;
@@ -1896,13 +1913,24 @@ fitAndDraw();
 
   let camMeasStream=null, mFrozen=false, mImg=null, mMode='ref', mDrag=null;
   let refPts=[[0.22,0.74],[0.5,0.74]], tgtPts=[[0.3,0.42],[0.72,0.42]];
+  function mStatus(t,warn){ const s=D('camMeasStatus'); if(s){s.textContent=t;s.style.color=warn?'var(--bad)':'var(--accent2)';} }
+  function camErrMsg(cv){ if(!cv)return; const w=cv.clientWidth||cv.width,h=cv.clientHeight||cv.height; cv.width=w;cv.height=h; const ctx=cv.getContext('2d');
+    ctx.clearRect(0,0,w,h);ctx.fillStyle='rgba(0,0,0,.8)';ctx.fillRect(0,0,w,h);ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='bold 14px system-ui';
+    ctx.fillText('⚠️ Η κάμερα δεν άνοιξε',w/2,h/2-24);ctx.font='12px system-ui';
+    ctx.fillText('Χρειάζεται άδεια κάμερας ΚΑΙ σύνδεση https.',w/2,h/2);
+    ctx.fillText('Άνοιξε την ONLINE έκδοση (GitHub Pages) ή την',w/2,h/2+20);
+    ctx.fillText('εγκατεστημένη εφαρμογή — όχι τοπικό αρχείο.',w/2,h/2+38); }
   function startCamMeas(){ const v=D('camMeasVid'); if(!v)return; mFrozen=false; mImg=null;
-    getCam(s=>{camMeasStream=s;v.srcObject=s;v.play&&v.play();D('camMeasWrap').classList.remove('empty');const c=D('camMeasCv');if(c)c.getContext('2d').clearRect(0,0,c.width,c.height);},
-      ()=>{D('camMeasOut').textContent='χωρίς κάμερα';}); }
-  function freezeCamMeas(){ const v=D('camMeasVid'),cv=D('camMeasCv'); if(!v||!cv)return; const w=cv.clientWidth,h=cv.clientHeight; if(!w||!h)return;
+    mStatus('Άνοιγμα κάμερας…');
+    getCam(s=>{camMeasStream=s;v.srcObject=s;v.play&&v.play();D('camMeasWrap').classList.remove('empty');const c=D('camMeasCv');if(c)c.getContext('2d').clearRect(0,0,c.width,c.height);mStatus('2) Στόχευσε αντικείμενο + αναφορά και πάτα «📸 Πάγωμα».');},
+      (err)=>{D('camMeasOut').textContent='—';mStatus('⚠️ Η κάμερα δεν άνοιξε — χρειάζεται άδεια & https (online έκδοση).',true);D('camMeasWrap').classList.remove('empty');camErrMsg(D('camMeasCv'));}); }
+  function freezeCamMeas(){ const v=D('camMeasVid'),cv=D('camMeasCv'); if(!v||!cv)return;
+    if(!camMeasStream){ mStatus('Πρώτα πάτα «📷 Κάμερα».',true); return; }
+    const w=cv.clientWidth,h=cv.clientHeight; if(!w||!h)return;
     mImg=document.createElement('canvas');mImg.width=w;mImg.height=h;const mx=mImg.getContext('2d');
     const vw=v.videoWidth,vh=v.videoHeight; if(vw&&vh){const sc=Math.max(w/vw,h/vh),dw=vw*sc,dh=vh*sc;mx.drawImage(v,(w-dw)/2,(h-dh)/2,dw,dh);}
-    mFrozen=true; if(camMeasStream){camMeasStream.getTracks().forEach(t=>t.stop());camMeasStream=null;} v.srcObject=null; redrawMeas(); }
+    mFrozen=true; if(camMeasStream){camMeasStream.getTracks().forEach(t=>t.stop());camMeasStream=null;} v.srcObject=null; redrawMeas();
+    mStatus('3) Σύρε τα 🔵 μπλε άκρα στην αναφορά (γράψε cm), μετά «🟠 Μέτρηση» & σύρε τα πορτοκαλί.'); }
   function redrawMeas(){ const cv=D('camMeasCv'); if(!cv)return; const w=cv.clientWidth,h=cv.clientHeight; if(!w||!h)return; if(cv.width!==w)cv.width=w; if(cv.height!==h)cv.height=h;
     const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,h); if(mImg)ctx.drawImage(mImg,0,0,w,h);
     const P=p=>[p[0]*w,p[1]*h];
@@ -1944,6 +1972,11 @@ fitAndDraw();
       // fullscreen ανά εργαλείο (⛶ σε κάθε κάρτα)
       document.querySelectorAll('#tab-tools .toolFS').forEach(btn=>btn.onclick=()=>{ const card=btn.closest('.card'); if(window.fsCard)window.fsCard(card); });
       window._toolsRedraw=function(){ try{drawRuler();}catch(e){} try{redrawMeas();}catch(e){} };
+      // χάρακας: σύρσιμο κόκκινων δεικτών
+      const rc=D('rulerCv');
+      if(rc){ rc.addEventListener('pointerdown',e=>{ const x=rulerPtr(e); rDrag=(Math.abs(x-rm1)<=Math.abs(x-rm2))?'1':'2'; if(rDrag==='1')rm1=x;else rm2=x; try{rc.setPointerCapture(e.pointerId);}catch(_){}drawRuler();e.preventDefault(); });
+        rc.addEventListener('pointermove',e=>{ if(!rDrag)return; const x=Math.max(4,Math.min(rc.width-4,rulerPtr(e))); if(rDrag==='1')rm1=x;else rm2=x; drawRuler();e.preventDefault(); });
+        rc.addEventListener('pointerup',()=>{rDrag=null;}); rc.addEventListener('pointercancel',()=>{rDrag=null;}); }
       const mc=D('camMeasCv');
       if(mc){ mc.addEventListener('pointerdown',e=>{ if(!mFrozen)return; const p=measPtr(e); const all=[['ref',0],['ref',1],['tgt',0],['tgt',1]]; let best=null,bd=1e9;
           all.forEach(([k,i])=>{const pts=k==='ref'?refPts:tgtPts;const d=(pts[i][0]-p[0])**2+(pts[i][1]-p[1])**2;if(d<bd){bd=d;best=[k,i];}});
